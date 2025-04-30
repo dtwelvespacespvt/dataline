@@ -140,6 +140,8 @@ def validate_dsn(value: str) -> str:
         value = value.replace("mysql", "mysql+pymysql", 1)
     elif value.startswith("mssql"):
         value = value.replace("mssql", "mssql+pyodbc", 1)
+    elif value.startswith("redshift"):
+        value = value.replace("redshift", "redshift+redshift_connector", 1)
 
     return value
 

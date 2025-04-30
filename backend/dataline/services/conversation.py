@@ -273,6 +273,6 @@ class ConversationService:
             elif message.role == BaseMessageType.SYSTEM.value:
                 base_messages.append(SystemMessage(content=message.content))
             else:
-                logger.error(Exception(f"Unknown message role: {message.role}"))
+                logger.exception(Exception(f"Unknown message role: {message.role}"))
 
         return base_messages

@@ -84,17 +84,17 @@ class ConnectionService:
 
                     return db
                 except OperationalError as e:
-                    logger.error(e)
+                    logger.exception(e)
                     raise ValidationError("Failed to connect to database, please check your DSN.")
                 except Exception as e:
                     forward_connection_errors(e)
 
-            logger.error(exc)
+            logger.exception(exc)
             raise ValidationError("Failed to connect to database, please check your DSN.")
 
         except Exception as e:
             forward_connection_errors(e)
-            logger.error(e)
+            logger.exception(e)
             raise ValidationError("Failed to connect to database, please check your DSN.")
 
     async def check_dsn_already_exists(self, session: AsyncSession, dsn: str) -> None:
