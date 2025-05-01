@@ -142,10 +142,6 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
   const [selectedRadio, setSelectedRadio] = useState<RadioValue>(null);
   const [dsn, setDsn] = useState<string | null>(null);
   const [file, setFile] = useState<File>();
-  const [viewSupport, setViewSupport] = useState<boolean>(false);
-  const [schemas, setSchemas] = useState<string | null>(null);
-  const [ignoreTables, setIgnoreTables] = useState<string | null>(null);
-  const [includeTables, setIncludeTables] = useState<string | null>(null);
   const { mutate: createConnection, isPending } = useCreateConnection();
   const { mutate: createFileConnection, isPending: isFilePending } =
     useCreateFileConnection();
@@ -162,7 +158,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
       return;
     }
     createConnection(
-      { dsn, name, isSample: false, viewSupport, schemas, ignoreTables, includeTables },
+      { dsn, name, isSample: false },
       {
         onSuccess: () => {
           enqueueSnackbar({
@@ -258,34 +254,6 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
                 type="text"
                 placeholder="postgres://myuser:mypassword@localhost:5432/mydatabase"
                 onChange={(e) => setDsn(e.target.value)}
-              />
-            </Field>
-            <CheckboxField className="mt-4">
-              <Checkbox onChange={() => setViewSupport(!viewSupport)} checked={viewSupport} />
-              <Label>View Support</Label>
-            </CheckboxField>
-            <Field className="mt-4">
-              <Label>Schemas</Label>
-              <Input
-                type="text"
-                placeholder="Schemas"
-                onChange={(e) => setSchemas(e.target.value)}
-              />
-            </Field>
-            <Field className="mt-4">
-              <Label>Ignore Tables</Label>
-              <Input
-                type="text"
-                placeholder="Ignore Tables"
-                onChange={(e) => setIgnoreTables(e.target.value)}
-              />
-            </Field>
-            <Field className="mt-4">
-              <Label>Include Tables</Label>
-              <Input
-                type="text"
-                placeholder="Include Tables"
-                onChange={(e) => setIncludeTables(e.target.value)}
               />
             </Field>
             <Button

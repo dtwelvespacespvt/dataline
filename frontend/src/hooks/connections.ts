@@ -108,19 +108,11 @@ export function useCreateConnection(options = {}) {
       dsn,
       name,
       isSample,
-      viewSupport,
-      schemas,
-      ignoreTables,
-      includeTables,
     }: {
       dsn: string;
       name: string;
       isSample: boolean;
-      viewSupport: boolean;
-      schemas: string | null;
-      ignoreTables: string | null;
-      includeTables: string | null;
-    }) => api.createConnection(dsn, name, isSample, viewSupport, schemas, ignoreTables, includeTables),
+    }) => api.createConnection(dsn, name, isSample),
     onSettled() {
       queryClient.invalidateQueries({
         queryKey: getConnectionsQuery().queryKey,

@@ -8,19 +8,21 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dataline.config import config
 
 
-class ConnecitonSchemaTable(BaseModel):
+class ConnectionSchemaTable(BaseModel):
     name: str
     enabled: bool
 
 
 class ConnectionSchema(BaseModel):
     name: str
-    tables: list[ConnecitonSchemaTable]
+    tables: list[ConnectionSchemaTable]
     enabled: bool
 
 
 class ConnectionOptions(BaseModel):
     schemas: list[ConnectionSchema]
+    view_support: bool = True
+    inspect_allowed: bool = True
 
 
 class Connection(BaseModel):

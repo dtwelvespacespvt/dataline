@@ -60,10 +60,6 @@ const createConnection = async (
   connectionString: string,
   name: string,
   isSample: boolean,
-  viewSupport: boolean,
-  schemas: string | null,
-  ignoreTables: string | null,
-  includeTables: string | null,
 ): Promise<ConnectResult> => {
   const response = await backendApi<ConnectResult>({
     url: "/connect",
@@ -72,10 +68,6 @@ const createConnection = async (
       dsn: connectionString,
       name: name,
       is_sample: isSample,
-      viewSupport,
-      schemas,
-      ignoreTables,
-      includeTables,
     },
   });
   return response.data;

@@ -10,12 +10,12 @@ import pandas as pd
 import pyreadstat
 from fastapi import Depends, UploadFile
 from sqlalchemy.exc import OperationalError
-
+from sqlalchemy.engine import make_url
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.connection.model import ConnectionModel
 from dataline.models.connection.schema import (
-    ConnecitonSchemaTable,
+    ConnectionSchemaTable,
     ConnectionOptions,
     ConnectionOut,
     ConnectionSchema,
@@ -151,8 +151,6 @@ class ConnectionService:
     ) -> ConnectionOut:
         # Check if connection can be established before saving it
         db = await self.get_db_from_dsn(dsn)
-        # get potentially modified dsn (eg. if localhost was replaced with host.docker.internal)
-        dsn = str(db._engine.url.render_as_string(hide_password=False))
         if not connection_type:
             connection_type = db.dialect
 
@@ -161,11 +159,16 @@ class ConnectionService:
         connection_schemas: list[ConnectionSchema] = [
             ConnectionSchema(
                 name=schema,
-                tables=[ConnecitonSchemaTable(name=table, enabled=True) for table in tables],
+                tables=[ConnectionSchemaTable(name=table, enabled=True) for table in tables],
                 enabled=True,
             )
             for schema, tables in db._all_tables_per_schema.items()
         ]
+        url = make_url(dsn)
+        query = url.query
+        view_support = query.get("view_support", "true").lower() == "true"
+        inspect_allowed = query.get("inspect", "true").lower() == "true"
+        logger.info(f"view_support {view_support}, inspect_allowed {inspect_allowed}")
         connection = await self.connection_repo.create(
             session,
             ConnectionCreate(
@@ -175,7 +178,7 @@ class ConnectionService:
                 dialect=db.dialect,
                 type=connection_type,
                 is_sample=is_sample,
-                options=ConnectionOptions(schemas=connection_schemas),
+                options=ConnectionOptions(schemas=connection_schemas, view_support=view_support, inspect_allowed=view_support),
             ),
         )
         return ConnectionOut.model_validate(connection)
@@ -281,7 +284,7 @@ class ConnectionService:
             new_schemas = [
                 ConnectionSchema(
                     name=schema,
-                    tables=[ConnecitonSchemaTable(name=table, enabled=True) for table in tables],
+                    tables=[ConnectionSchemaTable(name=table, enabled=True) for table in tables],
                     enabled=True,
                 )
                 for schema, tables in db._all_tables_per_schema.items()
@@ -298,7 +301,7 @@ class ConnectionService:
                 ConnectionSchema(
                     name=schema_name,
                     tables=[
-                        ConnecitonSchemaTable(
+                        ConnectionSchemaTable(
                             name=table, enabled=schema_table_enabled_map.get((schema_name, table), False)
                         )
                         for table in tables
