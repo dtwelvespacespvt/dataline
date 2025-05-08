@@ -9,7 +9,6 @@ import { CloudArrowUpIcon, DocumentCheckIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useCreateConnection, useCreateFileConnection } from "@/hooks";
 import { DatabaseFileType } from "@components/Library/types";
-import { Checkbox, CheckboxField } from "../Catalyst/checkbox";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
