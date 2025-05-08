@@ -1,5 +1,6 @@
 db.sqlite3
 backend/uv.lock
+backend/db.sqlite3*
 *_schema_index.json
 
 .vscode/

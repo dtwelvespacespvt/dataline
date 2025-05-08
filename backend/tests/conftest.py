@@ -42,6 +42,7 @@ async def engine() -> AsyncGenerator[AsyncEngine, None]:
 
     async with engine.begin() as connection:
         await connection.execute(text("PRAGMA foreign_keys=ON"))
+        await connection.execute(text("PRAGMA journal_mode=WAL"))
         await connection.run_sync(DBModel.metadata.drop_all)
         await connection.run_sync(DBModel.metadata.create_all)
 
