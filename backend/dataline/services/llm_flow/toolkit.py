@@ -40,6 +40,10 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
     call,
 )
 from dataline.services.llm_flow.utils import DatalineSQLDatabase as SQLDatabase
+from dataline.services.llm_flow.utils import TableRelationship
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class QueryGraphStateUpdate(TypedDict):
@@ -139,6 +143,7 @@ class ToolNames:
     LIST_SQL_TABLES = "list_sql_tables"
     QUERY_SQL_CORRECTOR = "sql_db_query_corrector"
     GENERATE_CHART = "generate_chart"
+    SQL_TABLES_RELATIONSHIP = "sql_db_tables_relationship"
 
 
 class BaseSQLDatabaseTool(BaseTool):
@@ -413,6 +418,50 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
         return list(self.db.get_usable_table_names())
 
 
+class _TableRelationshipToolInput(BaseModel):
+    tables: List[str] = Field(..., description="A list of table names to retrieve relationships for.")
+
+
+class TableRelationshipTool(BaseSQLDatabaseTool, BaseTool):
+    """Tool for getting tables relationships."""
+
+    name: str = ToolNames.SQL_TABLES_RELATIONSHIP
+    description: str = """Useful to get relationships between a set of tables. 
+    Input should be a JSON object with 'tables': a list of table names.
+    """
+    args_schema: Type[BaseModel] = _TableRelationshipToolInput
+
+    def _run(  # type: ignore
+            self,
+            tables: List[str],
+            run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        relationships: List[TableRelationship] = getattr(self.db, "relationships", [])
+        logger.info(f"TableRelationshipTool :: relationships {relationships}")
+        found = []
+
+        for rel in relationships:
+            if rel.from_table in tables and rel.to_table in tables:
+                found.append(rel.natural_language())
+            elif rel.to_table in tables and rel.from_table in tables:
+                inverse = TableRelationship(
+                    from_table=rel.to_table,
+                    from_column=rel.to_column,
+                    to_table=rel.from_table,
+                    to_column=rel.from_column,
+                    relationship_type="inverse of " + rel.relationship_type,
+                )
+                found.append(inverse.natural_language())
+
+        if not found:
+            return f"No relationships found between the specified tables: {tables}."
+
+        return "Found relationships:\n" + "\n".join(found)
+
+    def _arun(self, *args, **kwargs):
+        raise NotImplementedError("TableRelationshipTool does not support async")
+
+
 class SQLDatabaseToolkit(BaseToolkit):
     """Toolkit for interacting with SQL databases."""
 
@@ -439,6 +488,12 @@ class SQLDatabaseToolkit(BaseToolkit):
             "Example Input: table1, table2, table3"
         )
         info_sql_database_tool = InfoSQLDatabaseTool(db=self.db, description=info_sql_database_tool_description)
+        sql_db_tables_relationship_tool_description = (
+            "Get relationships between a set of tables."
+            f"Use this only after calling the {list_sql_database_tool.name} tool and obtaining valid table names."
+        )
+        sql_db_tables_relationship_tool = TableRelationshipTool(db=self.db,
+                                                                description=sql_db_tables_relationship_tool_description)
         query_sql_database_tool_description = (
             f"NEVER run this without running the {info_sql_database_tool.name} tool first."
             "Input to this tool is a detailed and correct SQL query, output is a "
@@ -448,12 +503,15 @@ class SQLDatabaseToolkit(BaseToolkit):
             "query, and try again. If you encounter an issue with Unknown column "
             f"'xxxx' in 'field list', use {info_sql_database_tool.name} "
             "to query the correct table fields."
+            f"If you encounter an issue with unclear joins, use the {sql_db_tables_relationship_tool.name} "
+            f"tool to understand relationships between the tables."
         )
         query_sql_database_tool = QuerySQLDataBaseTool(db=self.db, description=query_sql_database_tool_description)
 
         tools = [
-            info_sql_database_tool,
             list_sql_database_tool,
+            sql_db_tables_relationship_tool,
+            info_sql_database_tool,
         ]
 
         if allow_execution:

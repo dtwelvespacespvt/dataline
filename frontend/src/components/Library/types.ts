@@ -125,12 +125,14 @@ export interface IConnection {
   name: string;
   dialect: string;
   is_sample: boolean;
+  relationships: string;
   options?: IConnectionOptions;
 }
 
 export interface IEditConnection {
   name: string;
   dsn?: string;
+  relationships?: string;
   options?: IConnectionOptions;
 }
 

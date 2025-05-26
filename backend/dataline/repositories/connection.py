@@ -29,6 +29,7 @@ class ConnectionCreate(BaseModel):
     dialect: str
     type: str
     is_sample: bool = False
+    relationships: str | None = None
     options: ConnectionOptions | None = None
 
 
@@ -41,6 +42,7 @@ class ConnectionUpdate(BaseModel):
     dialect: str | None = None
     type: str | None = None
     is_sample: bool | None = None
+    relationships: str | None = None
     options: ConnectionOptions | None = None
 
 

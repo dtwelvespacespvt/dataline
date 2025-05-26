@@ -3,6 +3,7 @@ import { Radio, RadioField, RadioGroup } from "@catalyst/radio";
 import React, { useRef, useState } from "react";
 import { Input } from "@catalyst/input";
 import { Button } from "@catalyst/button";
+import { Textarea } from "@catalyst/textarea";
 import { enqueueSnackbar } from "notistack";
 import { useNavigate } from "@tanstack/react-router";
 import { CloudArrowUpIcon, DocumentCheckIcon } from "@heroicons/react/24/solid";
@@ -140,6 +141,7 @@ const fileTypeLabelMap: { [K in DatabaseFileType]: string } = {
 const ConnectionCreator = ({ name = null }: { name: string | null }) => {
   const [selectedRadio, setSelectedRadio] = useState<RadioValue>(null);
   const [dsn, setDsn] = useState<string | null>(null);
+  const [relationships, setRelationships] = useState<string | null>(null);
   const [file, setFile] = useState<File>();
   const { mutate: createConnection, isPending } = useCreateConnection();
   const { mutate: createFileConnection, isPending: isFilePending } =
@@ -157,7 +159,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
       return;
     }
     createConnection(
-      { dsn, name, isSample: false },
+      { dsn, name, isSample: false, relationships },
       {
         onSuccess: () => {
           enqueueSnackbar({
@@ -223,7 +225,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
           <RadioField>
             <Radio value="database" color="white" />
             <Label className="cursor-pointer">
-              Postgres, MySQL, Snowflake, or MS SQL Server connection string
+              Postgres, MySQL, Snowflake, Redshift or MS SQL Server connection string
             </Label>
           </RadioField>
           <RadioField>
@@ -253,6 +255,13 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
                 type="text"
                 placeholder="postgres://myuser:mypassword@localhost:5432/mydatabase"
                 onChange={(e) => setDsn(e.target.value)}
+              />
+            </Field>
+            <Field className="mt-4">
+              <Label>Tables Relationship (Optional)</Label>
+              <Textarea
+                placeholder="Relationships"
+                onChange={(e) => setRelationships(e.target.value)}
               />
             </Field>
             <Button

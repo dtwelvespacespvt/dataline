@@ -21,8 +21,6 @@ class ConnectionSchema(BaseModel):
 
 class ConnectionOptions(BaseModel):
     schemas: list[ConnectionSchema]
-    view_support: bool = True
-    inspect_allowed: bool = True
 
 
 class Connection(BaseModel):
@@ -35,6 +33,7 @@ class Connection(BaseModel):
     dialect: str
     type: str
     is_sample: bool
+    relationships: str | None = None
     options: Optional[ConnectionOptions] = None
 
 
@@ -152,6 +151,7 @@ class ConnectRequest(BaseModel):
     dsn: str = Field(min_length=3)
     name: str
     is_sample: bool = False
+    relationships: str
 
     @field_validator("dsn")
     def validate_dsn_format(cls, value: str) -> str:
@@ -161,6 +161,7 @@ class ConnectRequest(BaseModel):
 class ConnectionUpdateIn(BaseModel):
     name: Optional[str] = None
     dsn: Optional[str] = None
+    relationships: Optional[str] = None,
     options: Optional[ConnectionOptions] = None
 
     @field_validator("dsn")

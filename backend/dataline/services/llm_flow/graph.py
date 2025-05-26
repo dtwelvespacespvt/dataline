@@ -82,7 +82,7 @@ class QueryGraphService:
             "tool_executor": self.tool_executor,
         }
 
-        config: RunnableConfig | None = {"callbacks": [self.tracer]} if self.tracer is not None else None
+        config: RunnableConfig | None = {"callbacks": [self.tracer], "recursion_limit": 100} if self.tracer is not None else None
         current_results: Sequence[ResultType] | None
         current_messages: Sequence[BaseMessage] | None
         async for chunk in app.astream(initial_state, config=config):
