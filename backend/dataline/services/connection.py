@@ -5,17 +5,18 @@ import tempfile
 from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID
+import json
 
 import pandas as pd
 import pyreadstat
 from fastapi import Depends, UploadFile
 from sqlalchemy.exc import OperationalError
-
+from sqlalchemy.engine import make_url
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.connection.model import ConnectionModel
 from dataline.models.connection.schema import (
-    ConnecitonSchemaTable,
+    ConnectionSchemaTable,
     ConnectionOptions,
     ConnectionOut,
     ConnectionSchema,
@@ -60,10 +61,17 @@ class ConnectionService:
     async def delete_connection(self, session: AsyncSession, connection_id: UUID) -> None:
         await self.connection_repo.delete_by_uuid(session, connection_id)
 
-    async def get_db_from_dsn(self, dsn: str) -> SQLDatabase:
+    async def get_db_from_dsn(self, dsn: str, relationships: str) -> SQLDatabase:
         # Check if connection can be established before saving it
+        if isinstance(relationships, str):
+            try:
+                relationships = json.loads(relationships)
+            except json.JSONDecodeError:
+                relationships = []
+        elif relationships is None:
+            relationships = []
         try:
-            db = SQLDatabase.from_uri(dsn)
+            db = SQLDatabase.from_uri(dsn, relationships=relationships)
             database = db._engine.url.database
 
             if not database:
@@ -76,7 +84,7 @@ class ConnectionService:
             if "localhost" in dsn:
                 dsn = dsn.replace("localhost", "host.docker.internal")
                 try:
-                    db = SQLDatabase.from_uri(dsn)
+                    db = SQLDatabase.from_uri(dsn, relationships=relationships)
                     database = db._engine.url.database
 
                     if not database:
@@ -84,17 +92,17 @@ class ConnectionService:
 
                     return db
                 except OperationalError as e:
-                    logger.error(e)
+                    logger.exception(e)
                     raise ValidationError("Failed to connect to database, please check your DSN.")
                 except Exception as e:
                     forward_connection_errors(e)
 
-            logger.error(exc)
+            logger.exception(exc)
             raise ValidationError("Failed to connect to database, please check your DSN.")
 
         except Exception as e:
             forward_connection_errors(e)
-            logger.error(e)
+            logger.exception(e)
             raise ValidationError("Failed to connect to database, please check your DSN.")
 
     async def check_dsn_already_exists(self, session: AsyncSession, dsn: str) -> None:
@@ -122,8 +130,8 @@ class ConnectionService:
                 raise NotUniqueError("Connection DSN already exists.")
 
             # Check if connection can be established before saving it
-            db = await self.get_db_from_dsn(data.dsn)
-            update.dsn = str(db._engine.url.render_as_string(hide_password=False))
+            db = await self.get_db_from_dsn(data.dsn, data.relationships)
+            update.dsn = data.dsn
             update.database = db._engine.url.database
             update.dialect = db.dialect
             current_connection = await self.get_connection(session, connection_uuid)
@@ -134,10 +142,10 @@ class ConnectionService:
         elif data.options:
             # only modify options if dsn hasn't changed
             update.options = data.options
-
         if data.name:
             update.name = data.name
-
+        if data.relationships:
+            update.relationships = data.relationships
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -145,14 +153,13 @@ class ConnectionService:
         self,
         session: AsyncSession,
         dsn: str,
+        relationships: str,
         name: str,
         connection_type: str | None = None,
         is_sample: bool = False,
     ) -> ConnectionOut:
         # Check if connection can be established before saving it
-        db = await self.get_db_from_dsn(dsn)
-        # get potentially modified dsn (eg. if localhost was replaced with host.docker.internal)
-        dsn = str(db._engine.url.render_as_string(hide_password=False))
+        db = await self.get_db_from_dsn(dsn, relationships)
         if not connection_type:
             connection_type = db.dialect
 
@@ -161,7 +168,7 @@ class ConnectionService:
         connection_schemas: list[ConnectionSchema] = [
             ConnectionSchema(
                 name=schema,
-                tables=[ConnecitonSchemaTable(name=table, enabled=True) for table in tables],
+                tables=[ConnectionSchemaTable(name=table, enabled=True) for table in tables],
                 enabled=True,
             )
             for schema, tables in db._all_tables_per_schema.items()
@@ -175,6 +182,7 @@ class ConnectionService:
                 dialect=db.dialect,
                 type=connection_type,
                 is_sample=is_sample,
+                relationships=relationships,
                 options=ConnectionOptions(schemas=connection_schemas),
             ),
         )
@@ -281,7 +289,7 @@ class ConnectionService:
             new_schemas = [
                 ConnectionSchema(
                     name=schema,
-                    tables=[ConnecitonSchemaTable(name=table, enabled=True) for table in tables],
+                    tables=[ConnectionSchemaTable(name=table, enabled=True) for table in tables],
                     enabled=True,
                 )
                 for schema, tables in db._all_tables_per_schema.items()
@@ -298,7 +306,7 @@ class ConnectionService:
                 ConnectionSchema(
                     name=schema_name,
                     tables=[
-                        ConnecitonSchemaTable(
+                        ConnectionSchemaTable(
                             name=table, enabled=schema_table_enabled_map.get((schema_name, table), False)
                         )
                         for table in tables
@@ -327,7 +335,7 @@ class ConnectionService:
         connection = await self.connection_repo.get_by_uuid(session, connection_id)
 
         # Get the latest schema information
-        db = await self.get_db_from_dsn(connection.dsn)
+        db = await self.get_db_from_dsn(connection.dsn, connection.relationships)
 
         old_options = ConnectionOptions.model_validate(connection.options) if connection.options else None
         new_options = self.merge_options(old_options, db)

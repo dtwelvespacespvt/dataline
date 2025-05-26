@@ -32,6 +32,7 @@ class ConnectionModel(DBModel, UUIDMixin, kw_only=True):
     type: Mapped[str] = mapped_column("type", String, nullable=False)
     dialect: Mapped[str | None] = mapped_column("dialect", String)
     is_sample: Mapped[bool] = mapped_column("is_sample", Boolean, nullable=False, default=False, server_default="false")
+    relationships: Mapped[str] = mapped_column("relationships", String, nullable=True, unique=False)
     options: Mapped[ConnectionOptions | None] = mapped_column("options", JSON, nullable=True)
 
     # Relationships

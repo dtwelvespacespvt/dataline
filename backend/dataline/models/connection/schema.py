@@ -8,14 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dataline.config import config
 
 
-class ConnecitonSchemaTable(BaseModel):
+class ConnectionSchemaTable(BaseModel):
     name: str
     enabled: bool
 
 
 class ConnectionSchema(BaseModel):
     name: str
-    tables: list[ConnecitonSchemaTable]
+    tables: list[ConnectionSchemaTable]
     enabled: bool
 
 
@@ -33,6 +33,7 @@ class Connection(BaseModel):
     dialect: str
     type: str
     is_sample: bool
+    relationships: str | None = None
     options: Optional[ConnectionOptions] = None
 
 
@@ -140,6 +141,8 @@ def validate_dsn(value: str) -> str:
         value = value.replace("mysql", "mysql+pymysql", 1)
     elif value.startswith("mssql"):
         value = value.replace("mssql", "mssql+pyodbc", 1)
+    elif value.startswith("redshift"):
+        value = value.replace("redshift", "redshift+redshift_connector", 1)
 
     return value
 
@@ -148,6 +151,7 @@ class ConnectRequest(BaseModel):
     dsn: str = Field(min_length=3)
     name: str
     is_sample: bool = False
+    relationships: str
 
     @field_validator("dsn")
     def validate_dsn_format(cls, value: str) -> str:
@@ -157,6 +161,7 @@ class ConnectRequest(BaseModel):
 class ConnectionUpdateIn(BaseModel):
     name: Optional[str] = None
     dsn: Optional[str] = None
+    relationships: Optional[str] = None,
     options: Optional[ConnectionOptions] = None
 
     @field_validator("dsn")

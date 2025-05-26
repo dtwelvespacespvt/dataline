@@ -3,6 +3,7 @@ import postgresImage from "../../assets/images/postgres.png";
 import sqliteImage from "../../assets/images/sqlite.png";
 import sqlServerImage from "../../assets/images/sql_server.png";
 import snowflakeImage from "../../assets/images/snowflake.png";
+import redshiftImage from "../../assets/images/redshift.png";
 import mysqlImage from "../../assets/images/mysql.png";
 import netflixImage from "../../assets/images/netflix.png";
 import spotifyImage from "../../assets/images/spotify.png";
@@ -23,6 +24,7 @@ const ConnectionImage: React.FC<ConnectionImageProps> = ({
     sqlite: sqliteImage,
     mssql: sqlServerImage,
     snowflake: snowflakeImage,
+    redshift: redshiftImage,
     mysql: mysqlImage,
     // You can add more mappings here as needed
   };

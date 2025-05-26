@@ -1,16 +1,37 @@
 from typing import Any, Generator, Protocol, Self, Sequence, cast
 
+import logging
 from langchain_community.utilities.sql_database import SQLDatabase
 from sqlalchemy import Engine, MetaData, Row, create_engine, inspect, text
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.schema import CreateTable
+from sqlalchemy.engine import make_url
 
 from dataline.models.connection.schema import ConnectionOptions
+from pydantic import BaseModel
+import json
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionProtocol(Protocol):
     dsn: str
+    relationships: str
     options: ConnectionOptions | None
+
+
+class TableRelationship(BaseModel):
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    relationship_type: str  # "one-to-many", "many-to-one", etc.
+
+    def natural_language(self) -> str:
+        return (
+            f"A {self.relationship_type.replace('-', ' ')} relationship exists between "
+            f"'{self.from_table}.{self.from_column}' and '{self.to_table}.{self.to_column}'."
+        )
 
 
 class DatalineSQLDatabase(SQLDatabase):
@@ -20,6 +41,7 @@ class DatalineSQLDatabase(SQLDatabase):
         self,
         engine: Engine,
         schemas: list[str] | None = None,
+        relationships: list[dict] | None = None,
         metadata: MetaData | None = None,
         ignore_tables: list[str] | None = None,
         include_tables: list[str] | None = None,
@@ -28,6 +50,9 @@ class DatalineSQLDatabase(SQLDatabase):
         custom_table_info: dict | None = None,
         view_support: bool = True,
         max_string_length: int = 300,
+        table_prefixes: list[str] | None = None,
+        blacklisted_table_suffixes: list[str] | None = None,
+        inspect_allowed: bool = True,
     ):
         """Create engine from database URI."""
         self._engine = engine
@@ -37,6 +62,9 @@ class DatalineSQLDatabase(SQLDatabase):
             self._schemas = inspector.get_schema_names()
         else:
             self._schemas = schemas
+        logger.info(f"relationships {relationships}")
+        if relationships:
+            self.relationships = [TableRelationship(**r) for r in (relationships or []) if r]
         if include_tables and ignore_tables:
             raise ValueError("Cannot specify both include_tables and ignore_tables")
 
@@ -45,10 +73,20 @@ class DatalineSQLDatabase(SQLDatabase):
         # tables list if view_support is True
         self._all_tables_per_schema: dict[str, set[str]] = {}
         for schema in self._schemas:
-            self._all_tables_per_schema[schema] = set(
-                self._inspector.get_table_names(schema=schema)
-                + (self._inspector.get_view_names(schema=schema) if view_support else [])
-            )
+            all_table_like_names = self._inspector.get_table_names(schema=schema)
+            if view_support:
+                all_table_like_names += self._inspector.get_view_names(schema=schema)
+            filtered_table_names = set()
+            for name in all_table_like_names:
+                # Filter by prefix
+                if table_prefixes and not any(name.startswith(prefix) for prefix in table_prefixes):
+                    continue
+                # Filter by suffix
+                if blacklisted_table_suffixes and any(name.endswith(suffix) for suffix in blacklisted_table_suffixes):
+                    continue
+                filtered_table_names.add(name)
+            self._all_tables_per_schema[schema] = filtered_table_names
+
         self._all_tables = set(f"{k}.{name}" for k, names in self._all_tables_per_schema.items() for name in names)
 
         self._include_tables = set(include_tables) if include_tables else set()
@@ -86,14 +124,14 @@ class DatalineSQLDatabase(SQLDatabase):
 
         self._metadata = metadata or MetaData()
         # including view support if view_support = true
-
-        for schema in self._schemas:
-            self._metadata.reflect(
-                views=view_support,
-                bind=self._engine,
-                only=[table.split(".")[-1] for table in self._usable_tables if table.startswith(f"{schema}.")],
-                schema=schema,
-            )
+        if inspect_allowed:
+            for schema in self._schemas:
+                self._metadata.reflect(
+                    views=view_support,
+                    bind=self._engine,
+                    only=[table.split(".")[-1] for table in self._usable_tables if table.startswith(f"{schema}.")],
+                    schema=schema,
+                )
 
         # # Add id to tables metadata
         # for t in self._metadata.sorted_tables:
@@ -102,12 +140,44 @@ class DatalineSQLDatabase(SQLDatabase):
     # def from_uri(cls, database_uri: str | URL, engine_args: dict | None = None, **kwargs: Any) -> Self:
     @classmethod
     def from_uri(
-        cls, database_uri: str, schemas: list[str] | None = None, engine_args: dict | None = None, **kwargs: Any
+        cls, database_uri: str, schemas: list[str] | None = None, relationships: list[dict] | None = None,
+            engine_args: dict | None = None, **kwargs: Any
     ) -> Self:
         """Construct a SQLAlchemy engine from URI."""
+        url = make_url(database_uri)
+        query = url.query
+        view_support = query.get("view_support", "true").lower() == "true"
+        inspect_allowed = query.get("inspect", "true").lower() == "true"
+        if schemas is None or len(schemas) == 0:
+            str_schemas = query.get("schemas")
+            schemas = [s.strip() for s in str_schemas.split(",")] if str_schemas else None
+        ignore_tables = query.get("ignore_tables")
+        table_prefixes = query.get("table_prefixes")
+        blacklisted_table_suffixes = query.get("blacklisted_table_suffixes")
+        parsed_ignore_tables = [t.strip() for t in ignore_tables.split(",")] if ignore_tables else []
+        include_tables = kwargs.pop("include_tables", None)
+        if include_tables is None:
+            str_include_tables = query.get("include_tables")
+            parsed_include_tables = [t.strip() for t in str_include_tables.split(",")] if str_include_tables else []
+        else:
+            parsed_include_tables = include_tables
+        parsed_table_prefixes = [t.strip() for t in table_prefixes.split(",")] if table_prefixes else []
+        parsed_blacklisted_table_suffixes = [t.strip() for t in blacklisted_table_suffixes.split(",")] \
+            if blacklisted_table_suffixes else []
         _engine_args = engine_args or {}
-        engine = create_engine(database_uri, **_engine_args)
-        return cls(engine, schemas=schemas, **kwargs)
+        new_database_uri = url.set(query={})
+        uri_with_password = str(new_database_uri.render_as_string(hide_password=False))
+        engine = create_engine(uri_with_password, **_engine_args)
+        return cls(engine,
+                   schemas=schemas,
+                   relationships=relationships,
+                   view_support=view_support,
+                   ignore_tables=parsed_ignore_tables,
+                   include_tables=parsed_include_tables,
+                   table_prefixes=parsed_table_prefixes,
+                   blacklisted_table_suffixes=parsed_blacklisted_table_suffixes,
+                   inspect_allowed=inspect_allowed,
+                   **kwargs)
 
     def custom_run_sql_stream(self, query: str) -> Generator[Sequence[Row[Any]], Any, None]:
         # https://docs.sqlalchemy.org/en/20/core/connections.html#streaming-with-a-fixed-buffer-via-yield-per
@@ -160,9 +230,17 @@ class DatalineSQLDatabase(SQLDatabase):
         else:
             schemas_str = None
             include_tables = None
+        if connection.relationships and isinstance(connection.relationships, str):
+            try:
+                relationships = json.loads(connection.relationships)
+            except json.JSONDecodeError:
+                relationships = []
+        else:
+            relationships = []
         return cls.from_uri(
             database_uri=connection.dsn,
             schemas=schemas_str,
+            relationships=relationships,
             engine_args=engine_args,
             include_tables=include_tables,
             **kwargs,
