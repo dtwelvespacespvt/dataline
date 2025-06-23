@@ -9,9 +9,25 @@ if TYPE_CHECKING:
     from dataline.models.conversation.model import ConversationModel
 
 
+class ConnectionSchemaTableColumnRelationship(TypedDict):
+    database: str
+    schema: str
+    column: str
+
+
+class ConnectionSchemaTableColumn(TypedDict):
+    name: str
+    possible_values: list[str]
+    primary_key: bool
+    description: str
+    relationship: list[ConnectionSchemaTableColumnRelationship]
+
+
 class ConnectionSchemaTable(TypedDict):
     name: str
     enabled: bool
+    columns: list[ConnectionSchemaTableColumn]
+    description: str
 
 
 class ConnectionSchema(TypedDict):
@@ -32,7 +48,6 @@ class ConnectionModel(DBModel, UUIDMixin, kw_only=True):
     type: Mapped[str] = mapped_column("type", String, nullable=False)
     dialect: Mapped[str | None] = mapped_column("dialect", String)
     is_sample: Mapped[bool] = mapped_column("is_sample", Boolean, nullable=False, default=False, server_default="false")
-    relationships: Mapped[str] = mapped_column("relationships", String, nullable=True, unique=False)
     options: Mapped[ConnectionOptions | None] = mapped_column("options", JSON, nullable=True)
 
     # Relationships

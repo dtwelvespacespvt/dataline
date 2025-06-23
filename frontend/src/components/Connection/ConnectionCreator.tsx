@@ -141,7 +141,6 @@ const fileTypeLabelMap: { [K in DatabaseFileType]: string } = {
 const ConnectionCreator = ({ name = null }: { name: string | null }) => {
   const [selectedRadio, setSelectedRadio] = useState<RadioValue>(null);
   const [dsn, setDsn] = useState<string | null>(null);
-  const [relationships, setRelationships] = useState<string | null>(null);
   const [file, setFile] = useState<File>();
   const { mutate: createConnection, isPending } = useCreateConnection();
   const { mutate: createFileConnection, isPending: isFilePending } =
@@ -159,7 +158,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
       return;
     }
     createConnection(
-      { dsn, name, isSample: false, relationships },
+      { dsn, name, isSample: false },
       {
         onSuccess: () => {
           enqueueSnackbar({
@@ -255,13 +254,6 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
                 type="text"
                 placeholder="postgres://myuser:mypassword@localhost:5432/mydatabase"
                 onChange={(e) => setDsn(e.target.value)}
-              />
-            </Field>
-            <Field className="mt-4">
-              <Label>Tables Relationship (Optional)</Label>
-              <Textarea
-                placeholder="Relationships"
-                onChange={(e) => setRelationships(e.target.value)}
               />
             </Field>
             <Button

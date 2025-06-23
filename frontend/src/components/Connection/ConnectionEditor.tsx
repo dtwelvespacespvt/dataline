@@ -182,15 +182,13 @@ export const ConnectionEditor = () => {
   // Form state
   const [editFields, setEditFields] = useState<IEditConnection>({
     name: "",
-    dsn: "",
-    relationships: "",
+    dsn: ""
   });
 
   useEffect(() => {
     setEditFields((prev) => ({
       name: connection?.name || prev.name,
       dsn: connection?.dsn || prev.dsn,
-      relationships: connection?.relationships || prev.relationships,
       options: connection?.options || prev.options,
     }));
   }, [connection]);
@@ -247,7 +245,6 @@ export const ConnectionEditor = () => {
       payload: {
         name: editFields.name,
         ...(editFields.dsn !== connection?.dsn && { dsn: editFields.dsn }),
-        relationships: editFields.relationships,
         options: editFields.options,
       },
     });
@@ -339,33 +336,6 @@ export const ConnectionEditor = () => {
                 value={editFields.dsn}
                 onChange={(e) => {
                   setEditFields({ ...editFields, dsn: e.target.value });
-                  setUnsavedChanges(true);
-                }}
-                className={classNames(
-                  isLoading
-                    ? "animate-pulse bg-gray-900 text-gray-400"
-                    : "bg-white/5 text-white",
-                  "block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="sm:col-span-6">
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium leading-6 text-white"
-            >
-              Tables Relationship (Optional)
-            </label>
-            <div className="mt-2">
-              <textarea
-                name="name"
-                id="name"
-                disabled={false}
-                value={editFields.relationships}
-                onChange={(e) => {
-                  setEditFields({ ...editFields, relationships: e.target.value });
                   setUnsavedChanges(true);
                 }}
                 className={classNames(

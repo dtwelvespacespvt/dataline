@@ -108,13 +108,11 @@ export function useCreateConnection(options = {}) {
       dsn,
       name,
       isSample,
-      relationships,
     }: {
       dsn: string;
       name: string;
       isSample: boolean;
-      relationships: string | null;
-    }) => api.createConnection(dsn, name, isSample, relationships),
+    }) => api.createConnection(dsn, name, isSample),
     onSettled() {
       queryClient.invalidateQueries({
         queryKey: getConnectionsQuery().queryKey,

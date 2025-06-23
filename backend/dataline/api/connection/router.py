@@ -35,8 +35,7 @@ async def connect_db(
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": False, "is_file": False})
 
-    connection = await connection_service.create_connection(session, dsn=req.dsn, name=req.name, is_sample=False,
-                                                            relationships=req.relationships)
+    connection = await connection_service.create_connection(session, dsn=req.dsn, name=req.name, is_sample=False)
     return SuccessResponse(data=connection)
 
 

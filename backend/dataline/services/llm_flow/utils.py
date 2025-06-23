@@ -16,22 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ConnectionProtocol(Protocol):
     dsn: str
-    relationships: str
     options: ConnectionOptions | None
-
-
-class TableRelationship(BaseModel):
-    from_table: str
-    from_column: str
-    to_table: str
-    to_column: str
-    relationship_type: str  # "one-to-many", "many-to-one", etc.
-
-    def natural_language(self) -> str:
-        return (
-            f"A {self.relationship_type.replace('-', ' ')} relationship exists between "
-            f"'{self.from_table}.{self.from_column}' and '{self.to_table}.{self.to_column}'."
-        )
 
 
 class DatalineSQLDatabase(SQLDatabase):
@@ -41,7 +26,6 @@ class DatalineSQLDatabase(SQLDatabase):
         self,
         engine: Engine,
         schemas: list[str] | None = None,
-        relationships: list[dict] | None = None,
         metadata: MetaData | None = None,
         ignore_tables: list[str] | None = None,
         include_tables: list[str] | None = None,
@@ -62,9 +46,6 @@ class DatalineSQLDatabase(SQLDatabase):
             self._schemas = inspector.get_schema_names()
         else:
             self._schemas = schemas
-        logger.info(f"relationships {relationships}")
-        if relationships:
-            self.relationships = [TableRelationship(**r) for r in (relationships or []) if r]
         if include_tables and ignore_tables:
             raise ValueError("Cannot specify both include_tables and ignore_tables")
 
@@ -140,7 +121,7 @@ class DatalineSQLDatabase(SQLDatabase):
     # def from_uri(cls, database_uri: str | URL, engine_args: dict | None = None, **kwargs: Any) -> Self:
     @classmethod
     def from_uri(
-        cls, database_uri: str, schemas: list[str] | None = None, relationships: list[dict] | None = None,
+        cls, database_uri: str, schemas: list[str] | None = None,
             engine_args: dict | None = None, **kwargs: Any
     ) -> Self:
         """Construct a SQLAlchemy engine from URI."""
@@ -170,7 +151,6 @@ class DatalineSQLDatabase(SQLDatabase):
         engine = create_engine(uri_with_password, **_engine_args)
         return cls(engine,
                    schemas=schemas,
-                   relationships=relationships,
                    view_support=view_support,
                    ignore_tables=parsed_ignore_tables,
                    include_tables=parsed_include_tables,
@@ -230,17 +210,9 @@ class DatalineSQLDatabase(SQLDatabase):
         else:
             schemas_str = None
             include_tables = None
-        if connection.relationships and isinstance(connection.relationships, str):
-            try:
-                relationships = json.loads(connection.relationships)
-            except json.JSONDecodeError:
-                relationships = []
-        else:
-            relationships = []
         return cls.from_uri(
             database_uri=connection.dsn,
             schemas=schemas_str,
-            relationships=relationships,
             engine_args=engine_args,
             include_tables=include_tables,
             **kwargs,
@@ -290,4 +262,5 @@ class DatalineSQLDatabase(SQLDatabase):
                 table_info += "*/"
             tables.append(table_info)
         final_str = "\n\n".join(tables)
+        logger.info(f"get_table_info {final_str}")
         return final_str
