@@ -4,8 +4,10 @@ import logging
 from langchain_community.utilities.sql_database import SQLDatabase
 from sqlalchemy import Engine, MetaData, Row, create_engine, inspect, text
 from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import NoSuchTableError, ProgrammingError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.engine import make_url
+from sqlalchemy import text
 
 from dataline.models.connection.schema import ConnectionOptions
 from pydantic import BaseModel
@@ -217,6 +219,38 @@ class DatalineSQLDatabase(SQLDatabase):
             include_tables=include_tables,
             **kwargs,
         )
+
+    def get_column_info_per_table_per_schema(self, schema: str | None = None, table: str | None = None) -> list:
+        columns = []
+        column_meta = []
+        primary_keys = []
+        try:
+            if self._engine.dialect.name == "redshift":
+                query = text("""
+                    SELECT column_name as name, data_type as type
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema AND table_name = :table
+                    ORDER BY ordinal_position
+                    """)
+                with self._engine.connect() as conn:
+                    result = conn.execute(query, {"schema": schema, "table": table}).fetchall()
+                    columns = [dict(row._mapping) for row in result]
+            else:
+                columns = self._inspector.get_columns(table, schema=schema)
+        except NoSuchTableError as e:
+            logger.info(table)
+        if len(columns) > 0 and self._engine.dialect.name != "redshift":
+            try:
+                primary_keys = self._inspector.get_pk_constraint(table).get("constrained_columns", [])
+            except NoSuchTableError as e:
+                logger.info(f"primary key not available in {table}")
+        for column in columns:
+            column_meta.append({
+                "name": column["name"],
+                "type": str(column["type"]),
+                "primary_key": column["name"] in primary_keys
+            })
+        return column_meta
 
     def get_table_info(self, table_names: list[str] | None = None) -> str:
         """Get information about specified tables.

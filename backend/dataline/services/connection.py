@@ -21,6 +21,7 @@ from dataline.models.connection.schema import (
     ConnectionOut,
     ConnectionSchema,
     ConnectionUpdateIn,
+    ConnectionSchemaTableColumn,
 )
 from dataline.repositories.base import AsyncSession, NotFoundError, NotUniqueError
 from dataline.repositories.connection import (
@@ -158,7 +159,7 @@ class ConnectionService:
         connection_schemas: list[ConnectionSchema] = [
             ConnectionSchema(
                 name=schema,
-                tables=[ConnectionSchemaTable(name=table, enabled=True) for table in tables],
+                tables=[ConnectionSchemaTable(name=table, enabled=True, columns=[ConnectionSchemaTableColumn(name=column["name"], type=column["type"], primary_key=column["primary_key"]) for column in db.get_column_info_per_table_per_schema(schema, table)]) for table in tables],
                 enabled=True,
             )
             for schema, tables in db._all_tables_per_schema.items()

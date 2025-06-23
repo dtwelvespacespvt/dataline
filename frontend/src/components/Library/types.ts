@@ -116,11 +116,11 @@ export interface IConnectionOptions {
       enabled: boolean;
       columns?: {
         name?: string;
+        type?: string;
         possible_values?: string[];
         primary_key?: boolean;
         description?: string;
         relationship?: {
-          database?: string;
           schema?: string;
           column?: string;
         }[];

@@ -9,13 +9,13 @@ from dataline.config import config
 
 
 class ConnectionSchemaTableColumnRelationship(BaseModel):
-    database: Optional[str] = None
     schema: Optional[str] = None
     column: Optional[str] = None
 
 
 class ConnectionSchemaTableColumn(BaseModel):
     name: Optional[str] = None
+    type: Optional[str] = None
     possible_values: Optional[list[str]] = []
     primary_key: Optional[bool] = False
     description: Optional[str] = None

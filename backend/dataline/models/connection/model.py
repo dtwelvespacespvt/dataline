@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 
 class ConnectionSchemaTableColumnRelationship(TypedDict):
-    database: str
     schema: str
     column: str
 
