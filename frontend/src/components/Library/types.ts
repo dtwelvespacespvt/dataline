@@ -114,6 +114,18 @@ export interface IConnectionOptions {
     tables: {
       name: string;
       enabled: boolean;
+      columns?: {
+        name?: string;
+        possible_values?: string[];
+        primary_key?: boolean;
+        description?: string;
+        relationship?: {
+          database?: string;
+          schema?: string;
+          column?: string;
+        }[];
+      }[];
+      description?: string;
     }[];
   }[];
 }
