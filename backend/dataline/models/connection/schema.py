@@ -12,6 +12,7 @@ class ConnectionSchemaTableColumnRelationship(BaseModel):
     schema: Optional[str] = None
     table: Optional[str] = None
     column: Optional[str] = None
+    enabled: Optional[bool] = False
 
 
 class ConnectionSchemaTableColumn(BaseModel):
@@ -21,6 +22,7 @@ class ConnectionSchemaTableColumn(BaseModel):
     primary_key: Optional[bool] = False
     description: Optional[str] = None
     relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
+    enabled: Optional[bool] = False
 
 
 class ConnectionSchemaTable(BaseModel):

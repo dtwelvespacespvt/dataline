@@ -120,10 +120,12 @@ export interface IConnectionOptions {
         possible_values?: string[];
         primary_key?: boolean;
         description?: string;
+        enabled?: boolean;
         relationship?: {
           schema?: string;
           table?: string;
           column?: string;
+          enabled?: boolean;
         }[];
       }[];
       description?: string;

@@ -13,6 +13,7 @@ class ConnectionSchemaTableColumnRelationship(TypedDict):
     schema: str
     table: str
     column: str
+    enabled: bool
 
 
 class ConnectionSchemaTableColumn(TypedDict):
@@ -21,6 +22,7 @@ class ConnectionSchemaTableColumn(TypedDict):
     primary_key: bool
     description: str
     relationship: list[ConnectionSchemaTableColumnRelationship]
+    enabled: bool
 
 
 class ConnectionSchemaTable(TypedDict):
