@@ -10,6 +10,7 @@ from dataline.config import config
 
 class ConnectionSchemaTableColumnRelationship(BaseModel):
     schema: Optional[str] = None
+    table: Optional[str] = None
     column: Optional[str] = None
 
 

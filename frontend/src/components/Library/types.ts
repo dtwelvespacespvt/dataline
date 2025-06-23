@@ -122,6 +122,7 @@ export interface IConnectionOptions {
         description?: string;
         relationship?: {
           schema?: string;
+          table?: string;
           column?: string;
         }[];
       }[];

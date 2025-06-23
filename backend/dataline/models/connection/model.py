@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 class ConnectionSchemaTableColumnRelationship(TypedDict):
     schema: str
+    table: str
     column: str
 
 
