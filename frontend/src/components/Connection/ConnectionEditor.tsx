@@ -13,8 +13,11 @@ import {
 } from "@/hooks";
 import { Button } from "../Catalyst/button";
 import { Transition } from "@headlessui/react";
-import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { Switch } from "@components/Catalyst/switch";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import {
+  PencilSquareIcon
+} from "@heroicons/react/24/outline";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -29,6 +32,14 @@ const SchemaEditor = ({
   const [expanded, setExpanded] = useState(
     Object.fromEntries(options.schemas.map((schema) => [schema.name, false]))
   );
+
+  const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index }: {
+    value: unknown, name: string, column_index: number, table_index: number, schema_index: number
+  }) => {
+    const _options: IConnectionOptions = { ...options };
+    _options.schemas[schema_index].tables[table_index].columns[column_index][name] = value;
+    setOptions(_options);
+  }
 
   return (
     <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
@@ -46,13 +57,13 @@ const SchemaEditor = ({
                     schemas: options.schemas.map((prev_schema, prev_idx) =>
                       prev_idx === schema_index
                         ? {
-                            ...prev_schema,
+                          ...prev_schema,
+                          enabled: checked,
+                          tables: prev_schema.tables.map((table) => ({
+                            ...table,
                             enabled: checked,
-                            tables: prev_schema.tables.map((table) => ({
-                              ...table,
-                              enabled: checked,
-                            })),
-                          }
+                          })),
+                        }
                         : prev_schema
                     ),
                   })
@@ -103,41 +114,147 @@ const SchemaEditor = ({
                               (prev_schema, prev_idx) =>
                                 prev_idx === schema_index
                                   ? {
-                                      ...prev_schema,
-                                      tables: prev_schema.tables.map(
-                                        (table, inner_table_idx) =>
-                                          inner_table_idx === table_index
-                                            ? {
-                                                ...table,
-                                                enabled: checked,
-                                              }
-                                            : table
-                                      ),
-                                    }
+                                    ...prev_schema,
+                                    tables: prev_schema.tables.map(
+                                      (table, inner_table_idx) =>
+                                        inner_table_idx === table_index
+                                          ? {
+                                            ...table,
+                                            enabled: checked,
+                                          }
+                                          : table
+                                    ),
+                                  }
                                   : prev_schema
                             ),
                           })
                         }
                       />
-                      <span
-                        className={classNames(
-                          "ml-4 text-sm/5",
-                          schema.enabled && table.enabled
-                            ? "text-white"
-                            : "text-white/50"
-                        )}
+
+                      <div
+                        className="group flex w-full items-center cursor-pointer"
+                        onClick={() =>
+                          setExpanded((prev) => ({
+                            ...prev,
+                            [`${schema.name}_${table.name}`]: !prev[`${schema.name}_${table.name}`],
+                          }))
+                        }
                       >
-                        {table.name}
-                      </span>
+                        <span
+                          className={classNames(
+                            "ml-4 text-sm/5",
+                            schema.enabled && table.enabled
+                              ? "text-white"
+                              : "text-white/50"
+                          )}
+                        >
+                          {table.name}
+                        </span>
+                        <ChevronDownIcon
+                          className={classNames(
+                            "size-5 fill-white/60 group-hover:fill-white/50",
+                            expanded[`${schema.name}_${table.name}`] ? "rotate-180" : ""
+                          )}
+                        />
+                      </div>
                     </div>
+                    <Transition show={expanded[`${schema.name}_${table.name}`] || false}>
+                      <div className="transition ease-in-out translate-x-0 data-[closed]:opacity-0 data-[closed]:-translate-y-3">
+                        <div className="w-full overflow-auto pt-5">
+                          <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
+                            <thead>
+                              <tr>
+                                <th className="px-3 py-2">Status</th>
+                                <th className="px-3 py-2">Name</th>
+                                <th className="px-3 py-2">Description</th>
+                                <th className="px-3 py-2">Type</th>
+                                <th className="px-3 py-2">Primary Key</th>
+                                <th className="px-3 py-2">Possible Values</th>
+                                <th className="px-3 py-2">Relationship</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {
+                                table?.columns?.map((column, column_index) => (
+                                  <tr key={column_index}>
+                                    <td className="px-3 py-2">
+                                      <Switch
+                                        color="green"
+                                        name="enabled"
+                                        checked={column.enabled}
+                                        onChange={(value) => columnFieldChangeHandler({ value, name: "enabled", column_index, table_index, schema_index })}
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="text"
+                                        name="name"
+                                        disabled={false}
+                                        value={column?.name}
+                                        onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "name", column_index, table_index, schema_index })}
+                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="text"
+                                        name="description"
+                                        disabled={false}
+                                        value={column?.description}
+                                        onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "description", column_index, table_index, schema_index })}
+                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="text"
+                                        name="type"
+                                        disabled={false}
+                                        value={column?.type}
+                                        onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "type", column_index, table_index, schema_index })}
+                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <Switch
+                                        color="green"
+                                        name="primary_key"
+                                        checked={column.primary_key}
+                                        onChange={(value) => columnFieldChangeHandler({ value, name: "primary_key", column_index, table_index, schema_index })}
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <input
+                                        type="text"
+                                        name="possible_values"
+                                        disabled={false}
+                                        value={column?.possible_values?.join(",")}
+                                        onChange={(e) => columnFieldChangeHandler({ value: (e.target.value || "")?.split(","), name: "possible_values", column_index, table_index, schema_index })}
+                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                      />
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <button className="text-gray-400 hover:text-white">
+                                        <PencilSquareIcon className="size-5" />
+                                      </button>
+
+                                    </td>
+                                  </tr>
+                                ))
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </Transition>
                   </div>
                 ))}
               </div>
-            </Transition>
-          </div>
+            </Transition >
+          </div >
         )
       )}
-    </div>
+    </div >
   );
 };
 
@@ -424,14 +541,14 @@ export const ConnectionEditor = () => {
             <Button
               onClick={handleBack}
               color="dark/zinc"
-              // className="rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-white border border-gray-500 hover:bg-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
+            // className="rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-white border border-gray-500 hover:bg-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               color="green"
-              // className="rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm border bg-green-600 border-green-500 hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors duration-150"
+            // className="rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm border bg-green-600 border-green-500 hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors duration-150"
             >
               Save
             </Button>
