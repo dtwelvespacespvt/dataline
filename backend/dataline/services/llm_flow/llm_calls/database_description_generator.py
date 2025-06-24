@@ -1,14 +1,6 @@
-from mirascope.core import prompt_template
-from pydantic import BaseModel
 
-
-class DatabaseDescriptionGeneratorResponse(BaseModel):
-    description: str
-
-
-@prompt_template()
-def database_description_generator_prompt(table: str, columns: list) -> str:
-    col_list = "\n".join([f"- {name} ({dtype})" for name, dtype in columns])
+def database_description_generator_prompt(table: str, columns: list[dict]) -> str:
+    col_list = "\n".join([f"- {col['name']} ({col['type']})" for col in columns])
     return f"""
     You are a data architect. Given the following table name and list of columns, write:
     1. A 1-line description of what the table represents.
@@ -26,4 +18,5 @@ def database_description_generator_prompt(table: str, columns: list) -> str:
         "column2": "..."
       }}
     }}
+    Only return valid JSON. Do not include any explanations or formatting.
     """

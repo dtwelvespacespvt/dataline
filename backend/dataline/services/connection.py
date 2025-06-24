@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sqlite3
@@ -5,13 +6,14 @@ import tempfile
 from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID
-import json
 
 import pandas as pd
 import pyreadstat
 from fastapi import Depends, UploadFile
-from sqlalchemy.exc import OperationalError
+from openai import APIError
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
+
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.connection.model import ConnectionModel
@@ -31,7 +33,9 @@ from dataline.repositories.connection import (
     ConnectionUpdate,
 )
 from dataline.services.file_parsers.excel_parser import ExcelParserService
+from dataline.services.llm_flow.llm_calls.database_description_generator import database_description_generator_prompt
 from dataline.services.llm_flow.utils import DatalineSQLDatabase as SQLDatabase
+from dataline.services.settings import SettingsService
 from dataline.utils.utils import (
     forward_connection_errors,
     generate_short_uuid,
@@ -43,9 +47,12 @@ logger = logging.getLogger(__name__)
 
 class ConnectionService:
     connection_repo: ConnectionRepository
+    settings_service: SettingsService
 
-    def __init__(self, connection_repo: ConnectionRepository = Depends(ConnectionRepository)) -> None:
+    def __init__(self, connection_repo: ConnectionRepository = Depends(ConnectionRepository),
+                 settings_service: SettingsService = Depends(SettingsService)) -> None:
         self.connection_repo = connection_repo
+        self.settings_service = settings_service
 
     async def get_connection(self, session: AsyncSession, connection_id: UUID) -> ConnectionOut:
         connection = await self.connection_repo.get_by_uuid(session, connection_id)
@@ -113,8 +120,50 @@ class ConnectionService:
         except NotFoundError:
             return None
 
+    async def _build_connection_schema_table(self, session: AsyncSession, schema: str, table: str, db,
+                                             generate_columns: bool, generate_descriptions: bool) \
+            -> ConnectionSchemaTable:
+        columns = db.get_column_info_per_table_per_schema(schema, table) if generate_columns else []
+        table_description, column_descriptions = await self.enrich_table_with_llm(session, table, columns) \
+            if generate_descriptions and len(columns) > 0 else ("", {})
+
+        return ConnectionSchemaTable(
+            name=table,
+            enabled=True,
+            description=table_description,
+            columns=[
+                ConnectionSchemaTableColumn(
+                    name=col["name"],
+                    type=col["type"],
+                    primary_key=col["primary_key"],
+                    enabled=True,
+                    description=column_descriptions.get(col["name"], "")
+                )
+                for col in columns
+            ] if generate_columns else []
+        )
+
+    async def enrich_table_with_llm(self, session: AsyncSession, table: str, columns: list[dict]) -> tuple[str, dict]:
+        from openai import OpenAI
+        user_details = await self.settings_service.get_model_details(session)
+        api_key = user_details.openai_api_key.get_secret_value()
+        base_url = user_details.openai_base_url
+        try:
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            prompt = database_description_generator_prompt(table, columns)
+            description_generator_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
+            )
+            parsed = json.loads(description_generator_response.choices[0].message.content)
+            return parsed["tableDescription"], parsed["columns"]
+        except APIError as e:
+            logger.exception(f"[LLM] Failed to describe {table}: {e}")
+            return "", {}
+
     async def update_connection(
-        self, session: AsyncSession, connection_uuid: UUID, data: ConnectionUpdateIn
+            self, session: AsyncSession, connection_uuid: UUID, data: ConnectionUpdateIn
     ) -> ConnectionOut:
         update = ConnectionUpdate()
         if data.dsn:
@@ -154,12 +203,17 @@ class ConnectionService:
         if not connection_type:
             connection_type = db.dialect
 
+        url = make_url(dsn)
+        query = url.query
+        generate_columns = query.get("generate_columns", "false").lower() == "true"
+        generate_descriptions = query.get("generate_descriptions", "false").lower() == "true"
         # Check if connection already exists
         await self.check_dsn_already_exists(session, dsn)
         connection_schemas: list[ConnectionSchema] = [
             ConnectionSchema(
                 name=schema,
-                tables=[ConnectionSchemaTable(name=table, enabled=True, columns=[ConnectionSchemaTableColumn(name=column["name"], type=column["type"], primary_key=column["primary_key"]) for column in db.get_column_info_per_table_per_schema(schema, table)]) for table in tables],
+                tables=[await self._build_connection_schema_table(session, schema, table, db, generate_columns
+                                                            , generate_descriptions) for table in tables],
                 enabled=True,
             )
             for schema, tables in db._all_tables_per_schema.items()
