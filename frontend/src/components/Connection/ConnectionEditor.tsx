@@ -38,11 +38,9 @@ const SchemaEditor = ({
   }) => {
     const _options: IConnectionOptions = { ...options };
     _options.schemas[schema_index].tables[table_index].columns[column_index][name] = value;
-    console.log("columnFieldChangeHandler = ", value, name, column_index, table_index, schema_index, _options);
     setOptions(_options);
   }
 
-  console.log("columnFieldChangeHandler options= ", options);
   return (
     <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
       {options.schemas.map((schema, schema_index) =>
