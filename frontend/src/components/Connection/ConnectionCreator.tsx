@@ -261,7 +261,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
               onClick={handleCustomCreate}
               disabled={isPending}
             >
-              Create connection
+              {isPending ? 'Processing...' : 'Create connection'}
             </Button>
           </div>
         ) : (
