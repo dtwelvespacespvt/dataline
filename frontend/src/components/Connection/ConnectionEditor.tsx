@@ -10,6 +10,8 @@ import {
   useGetConversations,
   useUpdateConnection,
   useRefreshConnectionSchema,
+  useGenerateDescriptions,
+  useGenerateRelationships,
 } from "@/hooks";
 import { Button } from "../Catalyst/button";
 import { Transition } from "@headlessui/react";
@@ -288,6 +290,18 @@ export const ConnectionEditor = () => {
     },
   });
 
+  const { mutate: generateDescriptions } = useGenerateDescriptions({
+    onSuccess() {
+      navigate({ to: "/" });
+    },
+  });
+
+  const { mutate: generateRelationships } = useGenerateRelationships({
+    onSuccess() {
+      navigate({ to: "/" });
+    },
+  });
+
   const { mutate: refreshSchema, isPending: isRefreshing } =
     useRefreshConnectionSchema((data) => {
       setEditFields((prev) => ({
@@ -348,14 +362,30 @@ export const ConnectionEditor = () => {
     deleteConnection(connectionId);
   }
 
-  function generateDescriptions() {
+  function handleGenerateDescriptions() {
     if (!connectionId) return;
-    deleteConnection(connectionId);
+
+    generateDescriptions({
+      id: connectionId,
+      payload: {
+        name: editFields.name,
+        dsn: editFields.dsn,
+        options: editFields.options,
+      },
+    });
   }
 
-  function generateRelationships() {
+  function handleGenerateRelationships() {
     if (!connectionId) return;
-    deleteConnection(connectionId);
+
+    generateRelationships({
+      id: connectionId,
+      payload: {
+        name: editFields.name,
+        dsn: editFields.dsn,
+        options: editFields.options,
+      },
+    });
   }
 
   function handleSubmit() {
@@ -514,16 +544,16 @@ export const ConnectionEditor = () => {
             <Button
               color="dark/zinc/sky"
               // className=" hover:bg-red-700 px-3 py-2 text-sm font-medium text-red-400 hover:text-white border border-gray-600 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
-              onClick={generateDescriptions}
+              onClick={handleGenerateDescriptions}
             >
-              Generate Descriptions
+              Generate Table Descriptions
             </Button>
             <Button
               color="dark/zinc/sky"
               // className=" hover:bg-red-700 px-3 py-2 text-sm font-medium text-red-400 hover:text-white border border-gray-600 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
-              onClick={generateRelationships}
+              onClick={handleGenerateRelationships}
             >
-              Generate Relationships
+              Generate Table Relationships
             </Button>
             <Button
               color="dark/zinc/red"

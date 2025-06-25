@@ -158,6 +158,30 @@ const deleteConnection = async (
   return response.data;
 };
 
+const generateDescriptions = async (
+  connectionId: string,
+  edits: IEditConnection
+): Promise<UpdateConnectionResult> => {
+  const response = await backendApi<UpdateConnectionResult>({
+    url: `/connection/${connectionId}/generate/descriptions`,
+    method: "patch",
+    data: edits,
+  });
+  return response.data;
+};
+
+const generateRelationships = async (
+  connectionId: string,
+  edits: IEditConnection
+): Promise<UpdateConnectionResult> => {
+  const response = await backendApi<UpdateConnectionResult>({
+    url: `/connection/${connectionId}/generate/relationships`,
+    method: "patch",
+    data: edits,
+  });
+  return response.data;
+};
+
 export type ConversationCreationResult = ApiResponse<{
   id: string;
 }>;
@@ -472,6 +496,8 @@ export const api = {
   createFileConnection,
   updateConnection,
   deleteConnection,
+  generateDescriptions,
+  generateRelationships,
   refreshConnectionSchema,
   listConnections,
   listConversations,
