@@ -559,7 +559,7 @@ export const ConnectionEditor = () => {
               // className=" hover:bg-red-700 px-3 py-2 text-sm font-medium text-red-400 hover:text-white border border-gray-600 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
               onClick={handleGenerateRelationships}
             >
-              {isGeneratingRelationships ? 'Processing...' : 'Generate Table Relationships'}
+              {isGeneratingRelationships ? 'Processing...' : 'Infer Table Relationships'}
             </Button>
             <Button
               color="dark/zinc/red"
