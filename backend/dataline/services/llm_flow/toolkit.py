@@ -225,7 +225,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         valid_tables = self._validate_sanitize_table_names(table_names, available_names)
 
         self.table_names = list(valid_tables)
-        return self.db.get_table_info_no_throw(self.table_names)
+        return self.db.get_table_info(self.table_names)
 
     def get_response(  # type: ignore[misc]
         self,
