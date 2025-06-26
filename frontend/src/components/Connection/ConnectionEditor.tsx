@@ -270,8 +270,9 @@ const SchemaEditor = ({
                                               <thead>
                                                 <tr>
                                                   <th className="px-3 py-2">Status</th>
-                                                  <th className="px-3 py-2">Schema</th>
+                                                  <th className="px-3 py-2">Schema Name</th>
                                                   <th className="px-3 py-2">Table</th>
+                                                  <th className="px-3 py-2">Column</th>
                                                 </tr>
                                               </thead>
                                               <tbody>
@@ -282,8 +283,38 @@ const SchemaEditor = ({
                                                         <Switch
                                                           color="green"
                                                           name="enabled"
-                                                          checked={relation.enabled}
+                                                          checked={relation?.enabled}
                                                           onChange={(value) => columnFieldChangeHandler({ value, name: "enabled", column_index, table_index, schema_index, relation_index })}
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          name="schema_name"
+                                                          disabled={false}
+                                                          value={relation?.schema_name}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "schema_name", column_index, table_index, schema_index, relation_index })}
+                                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          name="table"
+                                                          disabled={false}
+                                                          value={relation?.table}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "table", column_index, table_index, schema_index, relation_index })}
+                                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          name="column"
+                                                          disabled={false}
+                                                          value={relation?.column}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "column", column_index, table_index, schema_index, relation_index })}
+                                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                                         />
                                                       </td>
                                                     </tr>
@@ -310,146 +341,6 @@ const SchemaEditor = ({
           </div >
         )
       )}
-      <div className="relationship-modal">
-        <HeadlessTransition show={false}>
-          <Dialog
-            as="div"
-            className="relative z-50"
-            onClose={() => { }}
-          >
-            <HeadlessTransitionChild
-              enter="transition-opacity ease-linear duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="transition-opacity ease-linear duration-300"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-gray-900/80" />
-            </HeadlessTransitionChild>
-
-            <div className="fixed inset-0 flex items-center justify-center">
-              <HeadlessTransitionChild
-                enter="transition ease-in-out duration-300 transform"
-                enterFrom="-translate-x-full"
-                enterTo="translate-x-0"
-                leave="transition ease-in-out duration-300 transform"
-                leaveFrom="translate-x-0"
-                leaveTo="-translate-x-full"
-              >
-                <DialogPanel className="relative flex w-full max-w-2xl">
-                  <div className="flex grow flex-col gap-y-5 overflow-y-auto dark:bg-gray-900 px-6 pb-2 ring-1 ring-white/10">
-                    <div className="flex h-16 shrink-0 items-center justify-between">
-                      <h3 className=" text-gray-900 text-md md:text-2xl font-semibold">Update Relationship</h3>
-                      <HeadlessTransitionChild
-                        enter="ease-in-out duration-300"
-                        enterFrom="opacity-0"
-                        enterTo="opacity-100"
-                        leave="ease-in-out duration-300"
-                        leaveFrom="opacity-100"
-                        leaveTo="opacity-0"
-                      >
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            className=""
-                            onClick={() => { }}
-                          >
-                            <span className="sr-only">Close Relationship modal</span>
-                            <XMarkIcon
-                              className="h-6 w-6 text-grey"
-                              aria-hidden="true"
-                              strokeWidth={2.5}
-                            />
-                          </button>
-                        </div>
-                      </HeadlessTransitionChild>
-                    </div>
-                    <div className="">
-                      <Switch
-                        color="green"
-                        name="enabled"
-                        checked={false}
-                        onChange={() => { }}
-                        className={"border-1 border-red-700"}
-                      />
-                      <div className="py-2">
-                        <label
-                          htmlFor="schema"
-                          className="block text-sm font-medium leading-6 text-white"
-                        >
-                          Schema Name
-                        </label>
-                        <div className="mt-2">
-                          <input
-                            type="text"
-                            name="schema"
-                            disabled={false}
-                            value={"asd"}
-                            onChange={() => { }}
-                            className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                          />
-                        </div>
-                      </div>
-                      <div className="py-2">
-                        <label
-                          htmlFor="table"
-                          className="block text-sm font-medium leading-6 text-white"
-                        >
-                          Table Name
-                        </label>
-                        <div className="mt-2">
-                          <input
-                            type="text"
-                            name="table"
-                            disabled={false}
-                            value={""}
-                            onChange={() => { }}
-                            className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                          />
-                        </div>
-                      </div>
-                      <div className="py-2">
-                        <label
-                          htmlFor="column"
-                          className="block text-sm font-medium leading-6 text-white"
-                        >
-                          Column Name
-                        </label>
-                        <div className="mt-2">
-                          <input
-                            type="text"
-                            name="column"
-                            disabled={false}
-                            value={""}
-                            onChange={() => { }}
-                            className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex h-16 shrink-0 items-center justify-end">
-                      <Button
-                        onClick={() => { }}
-                        color="dark/zinc"
-                        className="mr-2"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => { }}
-                        color="green"
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                </DialogPanel>
-              </HeadlessTransitionChild>
-            </div>
-          </Dialog>
-        </HeadlessTransition>
-      </div>
     </div >
   );
 };
@@ -480,7 +371,7 @@ export const ConnectionEditor = () => {
 
   const { mutate: updateConnection,
     isPending: isUpdatingConnection
-   } = useUpdateConnection({
+  } = useUpdateConnection({
     onSuccess() {
       navigate({ to: "/" });
     },
@@ -488,7 +379,7 @@ export const ConnectionEditor = () => {
 
   const { mutate: generateDescriptions,
     isPending: isGeneratingDescriptions
-   } = useGenerateDescriptions({
+  } = useGenerateDescriptions({
     onSuccess() {
       navigate({ to: "/" });
     },
@@ -496,7 +387,7 @@ export const ConnectionEditor = () => {
 
   const { mutate: generateRelationships,
     isPending: isGeneratingRelationships
-   } = useGenerateRelationships({
+  } = useGenerateRelationships({
     onSuccess() {
       navigate({ to: "/" });
     },
