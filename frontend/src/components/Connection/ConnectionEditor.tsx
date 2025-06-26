@@ -44,14 +44,16 @@ const SchemaEditor = ({
   const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index, relation_index = -1 }: {
     value: unknown, name: string, column_index: number, table_index: number, schema_index: number, relation_index: number
   }) => {
-    const _options: IConnectionOptions = { ...options };
+    const newOptions = structuredClone(options);
+    const column = newOptions?.schemas?.[schema_index]?.tables?.[table_index]?.columns?.[column_index];
     if (relation_index >= 0) {
-      _options.schemas[schema_index].tables[table_index].columns[column_index].relationship[relation_index][name] = value;
+      column.relationship[relation_index][name] = value;
     } else {
-      _options.schemas[schema_index].tables[table_index].columns[column_index][name] = value;
+      column[name] = value;
     }
-    setOptions(_options);
+    setOptions(newOptions);
   }
+
 
   return (
     <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
