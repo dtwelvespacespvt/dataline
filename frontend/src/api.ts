@@ -8,6 +8,7 @@ import {
   IMessageWithResultsOut,
   IResult,
   IUserInfo,
+  PossibleValuesResult,
 } from "./components/Library/types";
 import { IEditConnection } from "./components/Library/types";
 import {
@@ -486,6 +487,19 @@ const getExportDataUrl = (resultId: string) => {
   return `${baseURL}result/${resultId}/export-csv`;
 };
 
+export type GetPossibleValuesResult = ApiResponse<PossibleValuesResult>;
+const getPossibleValues = async (
+  schema_name: string,
+  table_name: string,
+  column_name: string,
+): Promise<GetPossibleValuesResult> => {
+  return (
+    await backendApi<GetPossibleValuesResult>({
+      url: `/getPossibleValues/${schema_name}/${table_name}/${column_name}`,
+    })
+  ).data;
+};
+
 export const api = {
   healthcheck,
   hasAuth,
@@ -519,4 +533,5 @@ export const api = {
   getUserInfo,
   refreshChart,
   getExportDataUrl,
+  getPossibleValues
 };
