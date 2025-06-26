@@ -178,7 +178,7 @@ const SchemaEditor = ({
                           <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
                             <thead>
                               <tr>
-                                <th className="px-3 py-2">Status</th>
+                                <th className="px-3 py-2">Enabled</th>
                                 <th className="px-3 py-2">Name</th>
                                 <th className="px-3 py-2">Description</th>
                                 <th className="px-3 py-2">Type</th>
@@ -271,10 +271,10 @@ const SchemaEditor = ({
                                             <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
                                               <thead>
                                                 <tr>
-                                                  <th className="px-3 py-2">Status</th>
+                                                  <th className="px-3 py-2">Enabled</th>
                                                   <th className="px-3 py-2">Schema Name</th>
-                                                  <th className="px-3 py-2">Table</th>
-                                                  <th className="px-3 py-2">Column</th>
+                                                  <th className="px-3 py-2">Table Name</th>
+                                                  <th className="px-3 py-2">Column Name</th>
                                                 </tr>
                                               </thead>
                                               <tbody>
