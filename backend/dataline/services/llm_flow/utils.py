@@ -139,6 +139,7 @@ class DatalineSQLDatabase(SQLDatabase):
         blacklisted_table_suffixes = query.get("blacklisted_table_suffixes")
         parsed_ignore_tables = [t.strip() for t in ignore_tables.split(",")] if ignore_tables else []
         include_tables = kwargs.pop("include_tables", None)
+        custom_table_info = kwargs.pop("custom_table_info", None)
         if include_tables is None:
             str_include_tables = query.get("include_tables")
             parsed_include_tables = [t.strip() for t in str_include_tables.split(",")] if str_include_tables else []
@@ -156,6 +157,7 @@ class DatalineSQLDatabase(SQLDatabase):
                    view_support=view_support,
                    ignore_tables=parsed_ignore_tables,
                    include_tables=parsed_include_tables,
+                   custom_table_info=custom_table_info,
                    table_prefixes=parsed_table_prefixes,
                    blacklisted_table_suffixes=parsed_blacklisted_table_suffixes,
                    inspect_allowed=inspect_allowed,
@@ -209,14 +211,45 @@ class DatalineSQLDatabase(SQLDatabase):
             include_tables = [
                 f"{schema.name}.{table.name}" for schema in enabled_schemas for table in schema.tables if table.enabled
             ]
+            custom_table_info = {
+                f"{schema.name}.{table.name}": {
+                    "name": table.name,
+                    "description": table.description,
+                    "columns": [
+                        {
+                            "name": col.name,
+                            "type": col.type,
+                            "primary_key": col.primary_key,
+                            "possible_values": col.possible_values,
+                            "description": col.description,
+                            "relationship": [
+                                {
+                                    "schema_name": relationship.schema_name,
+                                    "table": relationship.table,
+                                    "column": relationship.column
+                                }
+                                for relationship in col.relationship
+                                if relationship.enabled
+                            ]
+                        }
+                        for col in table.columns
+                        if col.enabled
+                    ]
+                }
+                for schema in enabled_schemas
+                for table in schema.tables
+                if table.enabled
+            }
         else:
             schemas_str = None
             include_tables = None
+            custom_table_info = None
         return cls.from_uri(
             database_uri=connection.dsn,
             schemas=schemas_str,
             engine_args=engine_args,
             include_tables=include_tables,
+            custom_table_info=custom_table_info,
             **kwargs,
         )
 
@@ -278,9 +311,8 @@ class DatalineSQLDatabase(SQLDatabase):
 
         tables = []
         for table in meta_tables:
-            if self._custom_table_info and table.name in self._custom_table_info:
-                tables.append(self._custom_table_info[table.name])
-                continue
+            if self._custom_table_info and f"{table.schema}.{table.name}" in self._custom_table_info:
+                tables.append(json.dumps(self._custom_table_info[f"{table.schema}.{table.name}"]))
 
             # add create table command
             create_table = str(CreateTable(table).compile(self._engine))

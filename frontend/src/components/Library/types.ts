@@ -122,7 +122,7 @@ export interface IConnectionOptions {
         description?: string;
         enabled?: boolean;
         relationship?: {
-          schema?: string;
+          schema_name?: string;
           table?: string;
           column?: string;
           enabled?: boolean;

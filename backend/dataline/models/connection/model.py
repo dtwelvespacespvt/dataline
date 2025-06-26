@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class ConnectionSchemaTableColumnRelationship(TypedDict):
-    schema: str
+    schema_name: str
     table: str
     column: str
     enabled: bool

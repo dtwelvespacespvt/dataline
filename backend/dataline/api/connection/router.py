@@ -158,6 +158,26 @@ async def update_connection(
     )
 
 
+@router.patch("/connection/{connection_id}/generate/descriptions")
+async def generate_descriptions(
+        connection_id: UUID,
+        req: ConnectionUpdateIn,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessResponse[GetConnectionOut]:
+    background_tasks.add_task(posthog_capture, "description_updated")
+
+    updated_connection = await connection_service.generate_descriptions(session, connection_id, req)
+
+    # TODO: Simplify output structure here and on FE
+    return SuccessResponse(
+        data=GetConnectionOut(
+            connection=updated_connection,
+        ),
+    )
+
+
 @router.get("/samples")
 async def get_sample_connections() -> SuccessListResponse[SampleOut]:
     return SuccessListResponse(

@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sqlite3
@@ -5,13 +6,14 @@ import tempfile
 from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID
-import json
 
 import pandas as pd
 import pyreadstat
 from fastapi import Depends, UploadFile
-from sqlalchemy.exc import OperationalError
+from openai import APIError
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import OperationalError
+
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.connection.model import ConnectionModel
@@ -31,7 +33,9 @@ from dataline.repositories.connection import (
     ConnectionUpdate,
 )
 from dataline.services.file_parsers.excel_parser import ExcelParserService
+from dataline.services.llm_flow.llm_calls.database_description_generator import database_description_generator_prompt
 from dataline.services.llm_flow.utils import DatalineSQLDatabase as SQLDatabase
+from dataline.services.settings import SettingsService
 from dataline.utils.utils import (
     forward_connection_errors,
     generate_short_uuid,
@@ -43,9 +47,12 @@ logger = logging.getLogger(__name__)
 
 class ConnectionService:
     connection_repo: ConnectionRepository
+    settings_service: SettingsService
 
-    def __init__(self, connection_repo: ConnectionRepository = Depends(ConnectionRepository)) -> None:
+    def __init__(self, connection_repo: ConnectionRepository = Depends(ConnectionRepository),
+                 settings_service: SettingsService = Depends(SettingsService)) -> None:
         self.connection_repo = connection_repo
+        self.settings_service = settings_service
 
     async def get_connection(self, session: AsyncSession, connection_id: UUID) -> ConnectionOut:
         connection = await self.connection_repo.get_by_uuid(session, connection_id)
@@ -113,8 +120,103 @@ class ConnectionService:
         except NotFoundError:
             return None
 
+    async def _build_connection_schema_table(self, session: AsyncSession, schema: str, table: str, db,
+                                             generate_columns: bool, generate_descriptions: bool) \
+            -> ConnectionSchemaTable:
+        columns = db.get_column_info_per_table_per_schema(schema, table) if generate_columns else []
+        table_description, column_descriptions = await self.enrich_table_with_llm(session, table, columns) \
+            if generate_descriptions and len(columns) > 0 else ("", {})
+
+        return ConnectionSchemaTable(
+            name=table,
+            enabled=True,
+            description=table_description,
+            columns=[
+                ConnectionSchemaTableColumn(
+                    name=col["name"],
+                    type=col["type"],
+                    primary_key=col["primary_key"],
+                    enabled=True,
+                    description=column_descriptions.get(col["name"], "")
+                )
+                for col in columns
+            ] if len(columns) > 0 else []
+        )
+
+    async def _build_connection_schema_table_from_existing(self, session: AsyncSession, schema: str, table: str, db,
+                                                           generate_columns: bool, generate_descriptions: bool,
+                                                           connection_schema_table: ConnectionSchemaTable) \
+            -> ConnectionSchemaTable:
+        if connection_schema_table is None or len(connection_schema_table.columns) == 0:
+            columns = db.get_column_info_per_table_per_schema(schema, table) if generate_columns else []
+            table_description, column_descriptions = await self.enrich_table_with_llm(session, table, columns) \
+                if generate_descriptions and len(columns) > 0 else ("", {})
+            if connection_schema_table is None:
+                enabled = False
+            else:
+                enabled = connection_schema_table.enabled
+            return ConnectionSchemaTable(
+                name=table,
+                enabled=enabled,
+                description=table_description,
+                columns=[
+                    ConnectionSchemaTableColumn(
+                        name=col["name"],
+                        type=col["type"],
+                        primary_key=col["primary_key"],
+                        enabled=True,
+                        description=column_descriptions.get(col["name"], "")
+                    )
+                    for col in columns
+                ] if len(columns) > 0 else []
+            )
+        else:
+            columns = connection_schema_table.columns
+            table_description = connection_schema_table.description
+            if generate_descriptions and (table_description is None or str(table_description).strip() == ""):
+                columns_dict_list = [col.dict() for col in columns]
+                table_description, column_descriptions = await self.enrich_table_with_llm(session, table,
+                                                                                          columns_dict_list)
+            else:
+                column_descriptions = {col.name: col.description for col in columns}
+            column_enabled = {col.name: col.enabled for col in columns}
+            return ConnectionSchemaTable(
+                name=connection_schema_table.name,
+                enabled=connection_schema_table.enabled,
+                description=table_description,
+                columns=[
+                    ConnectionSchemaTableColumn(
+                        name=col.name,
+                        type=col.type,
+                        primary_key=col.primary_key,
+                        enabled=column_enabled.get(col.name, False),
+                        description=column_descriptions.get(col.name, "")
+                    )
+                    for col in columns
+                ] if len(columns) > 0 else []
+            )
+
+    async def enrich_table_with_llm(self, session: AsyncSession, table: str, columns: list[dict]) -> tuple[str, dict]:
+        from openai import OpenAI
+        user_details = await self.settings_service.get_model_details(session)
+        api_key = user_details.openai_api_key.get_secret_value()
+        base_url = user_details.openai_base_url
+        try:
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            prompt = database_description_generator_prompt(table, columns)
+            description_generator_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
+            )
+            parsed = json.loads(description_generator_response.choices[0].message.content)
+            return parsed["tableDescription"], parsed["columns"]
+        except APIError as e:
+            logger.exception(f"[LLM] Failed to describe {table}: {e}")
+            return "", {}
+
     async def update_connection(
-        self, session: AsyncSession, connection_uuid: UUID, data: ConnectionUpdateIn
+            self, session: AsyncSession, connection_uuid: UUID, data: ConnectionUpdateIn
     ) -> ConnectionOut:
         update = ConnectionUpdate()
         if data.dsn:
@@ -125,6 +227,10 @@ class ConnectionService:
 
             # Check if connection can be established before saving it
             db = await self.get_db_from_dsn(data.dsn)
+            url = make_url(data.dsn)
+            query = url.query
+            generate_columns = query.get("generate_columns", "false").lower() == "true"
+            generate_descriptions = query.get("generate_descriptions", "false").lower() == "true"
             update.dsn = data.dsn
             update.database = db._engine.url.database
             update.dialect = db.dialect
@@ -132,12 +238,35 @@ class ConnectionService:
             old_options = (
                 ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
             )
-            update.options = self.merge_options(old_options, db)
+            update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
         elif data.options:
             # only modify options if dsn hasn't changed
             update.options = data.options
         if data.name:
             update.name = data.name
+        updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
+        return ConnectionOut.model_validate(updated_connection)
+
+    async def generate_descriptions(
+            self, session: AsyncSession, connection_uuid: UUID, data: ConnectionUpdateIn
+    ) -> ConnectionOut:
+        update = ConnectionUpdate()
+        # Check if connection already exists and is different from the current one
+        existing_connection = await self.check_dsn_already_exists_or_none(session, data.dsn)
+        if existing_connection is not None and existing_connection.id != connection_uuid:
+            raise NotUniqueError("Connection DSN already exists.")
+
+        # Check if connection can be established before saving it
+        db = await self.get_db_from_dsn(data.dsn)
+        url = make_url(data.dsn)
+        query = url.query
+        generate_columns = query.get("generate_columns", "false").lower() == "true"
+        generate_descriptions = True
+        current_connection = await self.get_connection(session, connection_uuid)
+        old_options = (
+            ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
+        )
+        update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -154,12 +283,17 @@ class ConnectionService:
         if not connection_type:
             connection_type = db.dialect
 
+        url = make_url(dsn)
+        query = url.query
+        generate_columns = query.get("generate_columns", "false").lower() == "true"
+        generate_descriptions = query.get("generate_descriptions", "false").lower() == "true"
         # Check if connection already exists
         await self.check_dsn_already_exists(session, dsn)
         connection_schemas: list[ConnectionSchema] = [
             ConnectionSchema(
                 name=schema,
-                tables=[ConnectionSchemaTable(name=table, enabled=True, columns=[ConnectionSchemaTableColumn(name=column["name"], type=column["type"], primary_key=column["primary_key"]) for column in db.get_column_info_per_table_per_schema(schema, table)]) for table in tables],
+                tables=[await self._build_connection_schema_table(session, schema, table, db, generate_columns
+                                                            , generate_descriptions) for table in tables],
                 enabled=True,
             )
             for schema, tables in db._all_tables_per_schema.items()
@@ -273,13 +407,15 @@ class ConnectionService:
             # Clean up the temporary file
             os.unlink(temp_file_path)
 
-    def merge_options(self, old_options: ConnectionOptions | None, db: SQLDatabase) -> ConnectionOptions:
+    async def merge_options(self, session: AsyncSession, old_options: ConnectionOptions | None, db: SQLDatabase,
+                            generate_columns: bool, generate_descriptions: bool) -> ConnectionOptions:
         if old_options is None:
             # No options in the db, create new ConnectionOptions with everything enabled
             new_schemas = [
                 ConnectionSchema(
                     name=schema,
-                    tables=[ConnectionSchemaTable(name=table, enabled=True) for table in tables],
+                    tables=[await self._build_connection_schema_table(session, schema, table, db, generate_columns
+                                                                      , generate_descriptions) for table in tables],
                     enabled=True,
                 )
                 for schema, tables in db._all_tables_per_schema.items()
@@ -288,19 +424,19 @@ class ConnectionService:
             # "schema_name": enabled
             existing_schemas: dict[str, bool] = {schema.name: schema.enabled for schema in old_options.schemas}
             # ("schema_name", "table_name"): enabled
-            schema_table_enabled_map: dict[tuple[str, str], bool] = {
-                (schema.name, table.name): table.enabled for schema in old_options.schemas for table in schema.tables
+            schema_table_enabled_map: dict[tuple[str, str], ConnectionSchemaTable] = {
+                (schema.name, table.name): table for schema in old_options.schemas for table in schema.tables
             }
 
             new_schemas = [
                 ConnectionSchema(
                     name=schema_name,
-                    tables=[
-                        ConnectionSchemaTable(
-                            name=table, enabled=schema_table_enabled_map.get((schema_name, table), False)
-                        )
-                        for table in tables
-                    ],
+                    tables=[await self._build_connection_schema_table_from_existing(session, schema_name, table, db,
+                                                                                    generate_columns,
+                                                                                    generate_descriptions,
+                                                                                    schema_table_enabled_map.get(
+                                                                                        (schema_name, table), None))
+                            for table in tables],
                     enabled=existing_schemas.get(schema_name, False),
                 )
                 for schema_name, tables in db._all_tables_per_schema.items()
@@ -326,9 +462,12 @@ class ConnectionService:
 
         # Get the latest schema information
         db = await self.get_db_from_dsn(connection.dsn)
-
+        url = make_url(connection.dsn)
+        query = url.query
+        generate_columns = query.get("generate_columns", "false").lower() == "true"
+        generate_descriptions = query.get("generate_descriptions", "false").lower() == "true"
         old_options = ConnectionOptions.model_validate(connection.options) if connection.options else None
-        new_options = self.merge_options(old_options, db)
+        new_options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
 
         # Update the connection with new options
         updated_connection = await self.connection_repo.update_by_uuid(

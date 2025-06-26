@@ -182,6 +182,46 @@ export function useDeleteConnection(options = {}) {
   });
 }
 
+export function useGenerateDescriptions(options = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: IEditConnection }) =>
+      api.generateDescriptions(id, payload),
+    onError() {
+      enqueueSnackbar({
+        variant: "error",
+        message: "Error generating descriptions for tables and its columns",
+      });
+    },
+    onSettled() {
+      queryClient.invalidateQueries({
+        queryKey: getConnectionsQuery().queryKey,
+      });
+    },
+    ...options,
+  });
+}
+
+export function useGenerateRelationships(options = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: IEditConnection }) =>
+      api.generateRelationships(id, payload),
+    onError() {
+      enqueueSnackbar({
+        variant: "error",
+        message: "Error generating descriptions for tables and its columns",
+      });
+    },
+    onSettled() {
+      queryClient.invalidateQueries({
+        queryKey: getConnectionsQuery().queryKey,
+      });
+    },
+    ...options,
+  });
+}
+
 export function useUpdateConnection(options = {}) {
   const queryClient = useQueryClient();
   return useMutation({

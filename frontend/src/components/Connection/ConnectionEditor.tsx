@@ -10,6 +10,8 @@ import {
   useGetConversations,
   useUpdateConnection,
   useRefreshConnectionSchema,
+  useGenerateDescriptions,
+  useGenerateRelationships,
 } from "@/hooks";
 import { Button } from "../Catalyst/button";
 import { Transition } from "@headlessui/react";
@@ -476,7 +478,25 @@ export const ConnectionEditor = () => {
     },
   });
 
-  const { mutate: updateConnection } = useUpdateConnection({
+  const { mutate: updateConnection,
+    isPending: isUpdatingConnection
+   } = useUpdateConnection({
+    onSuccess() {
+      navigate({ to: "/" });
+    },
+  });
+
+  const { mutate: generateDescriptions,
+    isPending: isGeneratingDescriptions
+   } = useGenerateDescriptions({
+    onSuccess() {
+      navigate({ to: "/" });
+    },
+  });
+
+  const { mutate: generateRelationships,
+    isPending: isGeneratingRelationships
+   } = useGenerateRelationships({
     onSuccess() {
       navigate({ to: "/" });
     },
@@ -540,6 +560,32 @@ export const ConnectionEditor = () => {
   function handleDelete() {
     if (!connectionId) return;
     deleteConnection(connectionId);
+  }
+
+  function handleGenerateDescriptions() {
+    if (!connectionId) return;
+
+    generateDescriptions({
+      id: connectionId,
+      payload: {
+        name: editFields.name,
+        dsn: editFields.dsn,
+        options: editFields.options,
+      },
+    });
+  }
+
+  function handleGenerateRelationships() {
+    if (!connectionId) return;
+
+    generateRelationships({
+      id: connectionId,
+      payload: {
+        name: editFields.name,
+        dsn: editFields.dsn,
+        options: editFields.options,
+      },
+    });
   }
 
   function handleSubmit() {
@@ -696,6 +742,20 @@ export const ConnectionEditor = () => {
 
           <div className="sm:col-span-6 flex items-center justify-end gap-x-6">
             <Button
+              color="dark/zinc/sky" disabled={isGeneratingDescriptions}
+              // className=" hover:bg-red-700 px-3 py-2 text-sm font-medium text-red-400 hover:text-white border border-gray-600 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
+              onClick={handleGenerateDescriptions}
+            >
+              {isGeneratingDescriptions ? 'Processing...' : 'Generate Table Descriptions'}
+            </Button>
+            <Button
+              color="dark/zinc/sky" disabled={isGeneratingRelationships}
+              // className=" hover:bg-red-700 px-3 py-2 text-sm font-medium text-red-400 hover:text-white border border-gray-600 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
+              onClick={handleGenerateRelationships}
+            >
+              {isGeneratingRelationships ? 'Processing...' : 'Infer Table Relationships'}
+            </Button>
+            <Button
               color="dark/zinc/red"
               // className=" hover:bg-red-700 px-3 py-2 text-sm font-medium text-red-400 hover:text-white border border-gray-600 hover:border-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition-colors duration-150"
               onClick={() => {
@@ -717,10 +777,10 @@ export const ConnectionEditor = () => {
             </Button>
             <Button
               onClick={handleSubmit}
-              color="green"
+              color="green" disabled={isUpdatingConnection}
             // className="rounded-md px-4 py-2 text-sm font-medium text-white shadow-sm border bg-green-600 border-green-500 hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 transition-colors duration-150"
             >
-              Save
+              {isUpdatingConnection ? 'Processing...' : 'Save'}
             </Button>
           </div>
         </div>
