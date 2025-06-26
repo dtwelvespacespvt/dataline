@@ -20,6 +20,12 @@ import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import {
   PencilSquareIcon
 } from "@heroicons/react/24/outline";
+import {
+  Dialog,
+  DialogPanel,
+  Transition as HeadlessTransition,
+  TransitionChild as HeadlessTransitionChild,
+} from "@headlessui/react";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -35,13 +41,19 @@ const SchemaEditor = ({
     Object.fromEntries(options.schemas.map((schema) => [schema.name, false]))
   );
 
-  const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index }: {
-    value: unknown, name: string, column_index: number, table_index: number, schema_index: number
+  const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index, relation_index = -1 }: {
+    value: unknown, name: string, column_index: number, table_index: number, schema_index: number, relation_index: number
   }) => {
-    const _options: IConnectionOptions = { ...options };
-    _options.schemas[schema_index].tables[table_index].columns[column_index][name] = value;
-    setOptions(_options);
+    const newOptions = structuredClone(options);
+    const column = newOptions?.schemas?.[schema_index]?.tables?.[table_index]?.columns?.[column_index];
+    if (relation_index >= 0) {
+      column.relationship[relation_index][name] = value;
+    } else {
+      column[name] = value;
+    }
+    setOptions(newOptions);
   }
+
 
   return (
     <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
@@ -178,70 +190,145 @@ const SchemaEditor = ({
                             <tbody>
                               {
                                 table?.columns?.map((column, column_index) => (
-                                  <tr key={column_index}>
-                                    <td className="px-3 py-2">
-                                      <Switch
-                                        color="green"
-                                        name="enabled"
-                                        checked={column.enabled}
-                                        onChange={(value) => columnFieldChangeHandler({ value, name: "enabled", column_index, table_index, schema_index })}
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="text"
-                                        name="name"
-                                        disabled={false}
-                                        value={column?.name}
-                                        onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "name", column_index, table_index, schema_index })}
-                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="text"
-                                        name="description"
-                                        disabled={false}
-                                        value={column?.description}
-                                        onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "description", column_index, table_index, schema_index })}
-                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="text"
-                                        name="type"
-                                        disabled={false}
-                                        value={column?.type}
-                                        onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "type", column_index, table_index, schema_index })}
-                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <Switch
-                                        color="green"
-                                        name="primary_key"
-                                        checked={column.primary_key}
-                                        onChange={(value) => columnFieldChangeHandler({ value, name: "primary_key", column_index, table_index, schema_index })}
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="text"
-                                        name="possible_values"
-                                        disabled={false}
-                                        value={column?.possible_values?.join(",")}
-                                        onChange={(e) => columnFieldChangeHandler({ value: (e.target.value || "")?.split(","), name: "possible_values", column_index, table_index, schema_index })}
-                                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <button className="text-gray-400 hover:text-white">
-                                        <PencilSquareIcon className="size-5" />
-                                      </button>
+                                  <>
+                                    <tr key={column_index}>
+                                      <td className="px-3 py-2">
+                                        <Switch
+                                          color="green"
+                                          name="enabled"
+                                          checked={column.enabled}
+                                          onChange={(value) => columnFieldChangeHandler({ value, name: "enabled", column_index, table_index, schema_index })}
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="text"
+                                          name="name"
+                                          disabled={false}
+                                          value={column?.name}
+                                          onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "name", column_index, table_index, schema_index })}
+                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="text"
+                                          name="description"
+                                          disabled={false}
+                                          value={column?.description}
+                                          onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "description", column_index, table_index, schema_index })}
+                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="text"
+                                          name="type"
+                                          disabled={false}
+                                          value={column?.type}
+                                          onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "type", column_index, table_index, schema_index })}
+                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <Switch
+                                          color="green"
+                                          name="primary_key"
+                                          checked={column.primary_key}
+                                          onChange={(value) => columnFieldChangeHandler({ value, name: "primary_key", column_index, table_index, schema_index })}
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <input
+                                          type="text"
+                                          name="possible_values"
+                                          disabled={false}
+                                          value={column?.possible_values?.join(",")}
+                                          onChange={(e) => columnFieldChangeHandler({ value: (e.target.value || "")?.split(","), name: "possible_values", column_index, table_index, schema_index })}
+                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <button
+                                          className="text-gray-400 hover:text-white"
+                                          onClick={() =>
+                                            setExpanded((prev) => ({
+                                              ...prev,
+                                              [`${schema.name}_${table.name}_${column.name}`]: !prev[`${schema.name}_${table.name}_${column.name}`],
+                                            }))
+                                          }
+                                        >
+                                          <PencilSquareIcon className="size-5" />
+                                        </button>
 
-                                    </td>
-                                  </tr>
+                                      </td>
+                                    </tr>
+                                    <Transition show={expanded[`${schema.name}_${table.name}_${column.name}`] || false}>
+                                      <tr className="transition ease-in-out translate-x-0 data-[closed]:opacity-0 data-[closed]:-translate-y-3">
+                                        <td className="p-5" colSpan={7}>
+                                          <h3>Relationship Table</h3>
+                                          <div className="w-full overflow-auto pt-2">
+                                            <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
+                                              <thead>
+                                                <tr>
+                                                  <th className="px-3 py-2">Status</th>
+                                                  <th className="px-3 py-2">Schema Name</th>
+                                                  <th className="px-3 py-2">Table</th>
+                                                  <th className="px-3 py-2">Column</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {
+                                                  column?.relationship?.map((relation, relation_index) => (
+                                                    <tr key={relation_index}>
+                                                      <td className="px-3 py-2">
+                                                        <Switch
+                                                          color="green"
+                                                          name="enabled"
+                                                          checked={relation?.enabled}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "enabled", column_index, table_index, schema_index, relation_index })}
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          name="schema_name"
+                                                          disabled={false}
+                                                          value={relation?.schema_name}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "schema_name", column_index, table_index, schema_index, relation_index })}
+                                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          name="table"
+                                                          disabled={false}
+                                                          value={relation?.table}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "table", column_index, table_index, schema_index, relation_index })}
+                                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          name="column"
+                                                          disabled={false}
+                                                          value={relation?.column}
+                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "column", column_index, table_index, schema_index, relation_index })}
+                                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                                        />
+                                                      </td>
+                                                    </tr>
+                                                  ))
+                                                }
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </Transition>
+                                  </>
                                 ))
                               }
                             </tbody>
@@ -286,7 +373,7 @@ export const ConnectionEditor = () => {
 
   const { mutate: updateConnection,
     isPending: isUpdatingConnection
-   } = useUpdateConnection({
+  } = useUpdateConnection({
     onSuccess() {
       navigate({ to: "/" });
     },
@@ -294,7 +381,7 @@ export const ConnectionEditor = () => {
 
   const { mutate: generateDescriptions,
     isPending: isGeneratingDescriptions
-   } = useGenerateDescriptions({
+  } = useGenerateDescriptions({
     onSuccess() {
       navigate({ to: "/" });
     },
@@ -302,7 +389,7 @@ export const ConnectionEditor = () => {
 
   const { mutate: generateRelationships,
     isPending: isGeneratingRelationships
-   } = useGenerateRelationships({
+  } = useGenerateRelationships({
     onSuccess() {
       navigate({ to: "/" });
     },
