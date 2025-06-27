@@ -210,7 +210,7 @@ export function useGenerateRelationships(options = {}) {
     onError() {
       enqueueSnackbar({
         variant: "error",
-        message: "Error generating descriptions for tables and its columns",
+        message: "Error generating relationships for tables and its columns",
       });
     },
     onSettled() {

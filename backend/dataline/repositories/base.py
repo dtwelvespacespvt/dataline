@@ -29,7 +29,7 @@ elif config.type == "postgres":
 elif config.type == "mysql":
     engine = create_async_engine(get_mysql_dsn_async(config.connection_string), echo=config.echo)
 else:
-    raise ModuleNotFoundError(f"{config.type} not found")
+    raise ValueError(f"{config.type} not found")
 
 # We set expire_on_commit to False so that subsequent access to objects that came from a session do not
 # need to emit new SQL queries to refresh the objects if the transaction has been committed already

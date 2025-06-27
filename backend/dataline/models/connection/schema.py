@@ -114,6 +114,13 @@ class SampleOut(BaseModel):
     link: str
 
 
+class RelationshipOut(BaseModel):
+    schema_name: str
+    table: str
+    column: str
+    enabled: bool
+
+
 def validate_dsn(value: str) -> str:
     # Regular expression pattern for matching DSNs
     # Try sqlite first

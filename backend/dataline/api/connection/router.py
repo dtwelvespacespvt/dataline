@@ -13,7 +13,7 @@ from dataline.models.connection.schema import (
     ConnectSampleIn,
     FileConnectionType,
     GetConnectionOut,
-    SampleOut,
+    SampleOut, RelationshipOut,
 )
 from dataline.old_models import SuccessListResponse, SuccessResponse
 from dataline.repositories.base import AsyncSession, get_session
@@ -177,6 +177,45 @@ async def generate_descriptions(
         ),
     )
 
+
+@router.patch("/connection/{connection_id}/generate/relationships")
+async def generate_relationships(
+        connection_id: UUID,
+        req: ConnectionUpdateIn,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessResponse[GetConnectionOut]:
+    background_tasks.add_task(posthog_capture, "relationships_updated")
+
+    updated_connection = await connection_service.generate_relationships(session, connection_id, req)
+
+    # TODO: Simplify output structure here and on FE
+    return SuccessResponse(
+        data=GetConnectionOut(
+            connection=updated_connection,
+        ),
+    )
+
+
+@router.get("/connection/{connection_id}/generate/relationships/{schema}/{table}/{column}/{column_type}")
+async def generate_relationships_per_column(
+        connection_id: UUID,
+        schema: str,
+        table: str,
+        column: str,
+        column_type: str,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessListResponse[RelationshipOut]:
+    background_tasks.add_task(posthog_capture, "get_relationship_per_column")
+
+    result = await connection_service.generate_relationships_per_column(session, connection_id, schema, table, column, column_type)
+
+    return SuccessListResponse(
+        data=result
+    )
 
 @router.get("/samples")
 async def get_sample_connections() -> SuccessListResponse[SampleOut]:
