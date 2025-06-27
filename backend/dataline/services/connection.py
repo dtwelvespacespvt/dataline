@@ -122,7 +122,7 @@ async def get_distinct_values(schema, table, column, db):
         with db._engine.connect() as conn:
             result = conn.execute(query)
             values = [row[0] for row in result.fetchall()]
-            return values
+            return [v for v in values if v is not None]
     except Exception as e:
         logger.exception(f"Failed to get distinct values from {table}.{column}: {e}")
         return []

@@ -26,9 +26,11 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
 }
 const SchemaEditor = ({
+  connectionId,
   options,
   setOptions,
 }: {
+  connectionId: string;
   options: IConnectionOptions;
   setOptions: (newOptions: IConnectionOptions) => void;
 }) => {
@@ -49,10 +51,10 @@ const SchemaEditor = ({
     setOptions(newOptions);
   }
 
-  const updatePossibleValues = async (schema_name: string, table_name: string, column_name: string, column_index: number, table_index: number, schema_index: number,) => {
-    const result = await api.getPossibleValues(schema_name, table_name, column_name);
-    if (result?.possibleValues && Array.isArray(result?.possibleValues)) {
-      columnFieldChangeHandler({ value: result?.possibleValues, name: "possible_values", column_index, table_index, schema_index });
+  const updatePossibleValues = async (connectionId: string, schema_name: string, table_name: string, column_name: string, column_index: number, table_index: number, schema_index: number,) => {
+    const result = await api.getPossibleValues(connectionId, schema_name, table_name, column_name);
+    if (result?.data && Array.isArray(result?.data)) {
+      columnFieldChangeHandler({ value: result?.data, name: "possible_values", column_index, table_index, schema_index });
     }
   }
 
@@ -251,7 +253,7 @@ const SchemaEditor = ({
                                             className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                           />
                                           <Button
-                                            onClick={() => updatePossibleValues(schema?.name, table?.name, column?.name || "", column_index, table_index, schema_index)}
+                                            onClick={() => updatePossibleValues(connectionId, schema?.name, table?.name, column?.name || "", column_index, table_index, schema_index)}
                                             plain
                                             disabled={false}
                                           >
@@ -638,6 +640,7 @@ export const ConnectionEditor = () => {
             </div>
             {editFields.options && (
               <SchemaEditor
+                connectionId={connectionId}
                 options={editFields.options}
                 setOptions={(newOptions) => {
                   setEditFields((prev) => ({

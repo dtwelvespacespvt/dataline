@@ -489,13 +489,14 @@ const getExportDataUrl = (resultId: string) => {
 
 export type GetPossibleValuesResult = ApiResponse<PossibleValuesResult>;
 const getPossibleValues = async (
+  connectionId: string,
   schema_name: string,
   table_name: string,
   column_name: string,
 ): Promise<GetPossibleValuesResult> => {
   return (
     await backendApi<GetPossibleValuesResult>({
-      url: `/getPossibleValues/${schema_name}/${table_name}/${column_name}`,
+      url: `/connection/${connectionId}/getPossibleValues/${schema_name}/${table_name}/${column_name}`,
     })
   ).data;
 };
