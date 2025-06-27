@@ -157,3 +157,7 @@ export interface IUserInfo {
   sentry_enabled: boolean;
   analytics_enabled: boolean;
 }
+
+export interface PossibleValuesResult {
+  possibleValues: []
+}

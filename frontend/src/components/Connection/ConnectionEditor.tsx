@@ -13,6 +13,7 @@ import {
   useGenerateDescriptions,
   useGenerateRelationships,
 } from "@/hooks";
+import { api } from "@/api";
 import { Button } from "../Catalyst/button";
 import { Transition } from "@headlessui/react";
 import { Switch } from "@components/Catalyst/switch";
@@ -20,12 +21,6 @@ import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import {
   PencilSquareIcon
 } from "@heroicons/react/24/outline";
-import {
-  Dialog,
-  DialogPanel,
-  Transition as HeadlessTransition,
-  TransitionChild as HeadlessTransitionChild,
-} from "@headlessui/react";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -52,6 +47,13 @@ const SchemaEditor = ({
       column[name] = value;
     }
     setOptions(newOptions);
+  }
+
+  const updatePossibleValues = async (schema_name: string, table_name: string, column_name: string, column_index: number, table_index: number, schema_index: number,) => {
+    const result = await api.getPossibleValues(schema_name, table_name, column_name);
+    if (result?.possibleValues && Array.isArray(result?.possibleValues)) {
+      columnFieldChangeHandler({ value: result?.possibleValues, name: column_name, column_index, table_index, schema_index });
+    }
   }
 
 
@@ -239,14 +241,29 @@ const SchemaEditor = ({
                                         />
                                       </td>
                                       <td className="px-3 py-2">
-                                        <input
-                                          type="text"
-                                          name="possible_values"
-                                          disabled={false}
-                                          value={column?.possible_values?.join(",")}
-                                          onChange={(e) => columnFieldChangeHandler({ value: (e.target.value || "")?.split(","), name: "possible_values", column_index, table_index, schema_index })}
-                                          className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                                        />
+                                        <div className="flex items-center gap-x-2">
+                                          <input
+                                            type="text"
+                                            name="possible_values"
+                                            disabled={true}
+                                            value={column?.possible_values?.join(",")}
+                                            // onChange={(e) => columnFieldChangeHandler({ value: (e.target.value || "")?.split(","), name: "possible_values", column_index, table_index, schema_index })}
+                                            className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                                          />
+                                          <Button
+                                            onClick={() => updatePossibleValues(schema?.name, table?.name, column?.name || "", column_index, table_index, schema_index)}
+                                            plain
+                                            disabled={false}
+                                          >
+                                            <ArrowPathIcon
+                                              className={classNames(
+                                                "w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6",
+                                                // isRefreshing ? "animate-spin" : ""
+                                              )}
+                                            />
+                                          </Button>
+                                        </div>
+
                                       </td>
                                       <td className="px-3 py-2">
                                         <button
