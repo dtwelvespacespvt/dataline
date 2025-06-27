@@ -52,7 +52,7 @@ const SchemaEditor = ({
   const updatePossibleValues = async (schema_name: string, table_name: string, column_name: string, column_index: number, table_index: number, schema_index: number,) => {
     const result = await api.getPossibleValues(schema_name, table_name, column_name);
     if (result?.possibleValues && Array.isArray(result?.possibleValues)) {
-      columnFieldChangeHandler({ value: result?.possibleValues, name: column_name, column_index, table_index, schema_index });
+      columnFieldChangeHandler({ value: result?.possibleValues, name: "possible_values", column_index, table_index, schema_index });
     }
   }
 
