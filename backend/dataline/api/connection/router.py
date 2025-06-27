@@ -217,6 +217,25 @@ async def generate_relationships_per_column(
         data=result
     )
 
+@router.get("/connection/{connection_id}/getPossibleValues/{schema}/{table}/{column}")
+async def get_possible_values_per_column(
+        connection_id: UUID,
+        schema: str,
+        table: str,
+        column: str,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessListResponse[object]:
+    background_tasks.add_task(posthog_capture, "get_possible_values_per_column")
+
+    result = await connection_service.get_possible_values_per_column(session, connection_id, schema, table, column)
+
+    return SuccessListResponse(
+        data=result
+    )
+
+
 @router.get("/samples")
 async def get_sample_connections() -> SuccessListResponse[SampleOut]:
     return SuccessListResponse(

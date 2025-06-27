@@ -115,6 +115,17 @@ async def validate_fk_by_value_overlap(from_table, from_column, to_table, to_col
         logger.exception(f"Overlap validation failed for {from_table}.{from_column} -> {to_table}.{to_column}: {e}")
         return 0.0
 
+async def get_distinct_values(schema, table, column, db):
+    query = text(f"SELECT DISTINCT {column} FROM {schema}.{table}")
+
+    try:
+        with db._engine.connect() as conn:
+            result = conn.execute(query)
+            values = [row[0] for row in result.fetchall()]
+            return values
+    except Exception as e:
+        logger.exception(f"Failed to get distinct values from {table}.{column}: {e}")
+        return []
 
 async def infer_relationships_per_column(schema: str, table: str, column: str, column_type: str, table_schemas, synonyms, db, threshold=0.7) -> list[RelationshipOut]:
     relationships = []
@@ -399,6 +410,12 @@ class ConnectionService:
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
         return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options, skip=False), synonyms=synonyms, db=db, threshold=0.1)
+
+    async def get_possible_values_per_column(self, session: AsyncSession, connection_uuid: UUID, schema: str, table: str, column: str
+                                                ) -> list:
+        current_connection = await self.get_connection(session, connection_uuid)
+        db = await self.get_db_from_dsn(current_connection.dsn)
+        return await get_distinct_values(schema, table, column, db=db)
 
     async def generate_relationships(
             self, session: AsyncSession, connection_uuid: UUID, data: ConnectionUpdateIn
