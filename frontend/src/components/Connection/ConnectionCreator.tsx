@@ -3,7 +3,6 @@ import { Radio, RadioField, RadioGroup } from "@catalyst/radio";
 import React, { useRef, useState } from "react";
 import { Input } from "@catalyst/input";
 import { Button } from "@catalyst/button";
-import { Textarea } from "@catalyst/textarea";
 import { enqueueSnackbar } from "notistack";
 import { useNavigate } from "@tanstack/react-router";
 import { CloudArrowUpIcon, DocumentCheckIcon } from "@heroicons/react/24/solid";
