@@ -13,6 +13,8 @@ from fastapi import Depends, UploadFile
 from openai import APIError
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
+from typing import Any
+from itertools import chain
 
 from dataline.config import config
 from dataline.errors import ValidationError
@@ -123,10 +125,25 @@ async def get_distinct_values(schema, table, column, db):
         with db._engine.connect() as conn:
             result = conn.execute(query)
             values = [row[0] for row in result.fetchall()]
-            return [v for v in values if v is not None]
+            flat = await extract_flat_string_list([v for v in values if v is not None])
+            flat = [s for s in flat if s.strip()]
+            unique_flat = list(dict.fromkeys(flat))
+            return unique_flat
     except Exception as e:
         logger.exception(f"Failed to get distinct values from {table}.{column}: {e}")
         return []
+
+async def extract_flat_string_list(nested: list[Any]) -> list[str]:
+    flat = []
+    for item in nested:
+        if isinstance(item, list):
+            for sub in item:
+                if isinstance(sub, str):
+                    flat.append(sub)
+        elif isinstance(item, str):
+            flat.append(item)
+
+    return flat
 
 async def infer_relationships_per_column(schema: str, table: str, column: str, column_type: str, table_schemas, synonyms, db, existingRelationship: list[ConnectionSchemaTableColumnRelationship], threshold=0.7) -> list[RelationshipOut]:
     relationships = []
