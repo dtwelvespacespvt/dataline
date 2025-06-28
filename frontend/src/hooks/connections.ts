@@ -187,10 +187,12 @@ export function useGenerateDescriptions(options = {}) {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: IEditConnection }) =>
       api.generateDescriptions(id, payload),
-    onError() {
+    onError(error: any) {
+      const backendMessage =
+        error?.response?.data?.detail || error?.message || "Error generating descriptions for tables and its columns";
       enqueueSnackbar({
         variant: "error",
-        message: "Error generating descriptions for tables and its columns",
+        message: backendMessage,
       });
     },
     onSettled() {
@@ -207,10 +209,12 @@ export function useGenerateRelationships(options = {}) {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: IEditConnection }) =>
       api.generateRelationships(id, payload),
-    onError() {
+    onError(error: any) {
+      const backendMessage =
+        error?.response?.data?.detail || error?.message || "Error generating relationships for tables and its columns";
       enqueueSnackbar({
         variant: "error",
-        message: "Error generating relationships for tables and its columns",
+        message: backendMessage,
       });
     },
     onSettled() {

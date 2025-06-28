@@ -161,6 +161,6 @@ export interface IUserInfo {
 export interface PossibleValuesResult {
   possibleValues: []
 }
-export interface ReletionshipsResult {
+export interface RelationshipsResult {
   relationships: []
 }

@@ -49,17 +49,16 @@ from sqlalchemy import text
 logger = logging.getLogger(__name__)
 
 
-def fetch_table_schemas(options: ConnectionOptions, skip: bool = True):
+def fetch_table_schemas(options: ConnectionOptions):
     table_schemas = defaultdict(list)
     for schema in options.schemas:
         for table in schema.tables:
             for column in table.columns:
-                if (column.enabled and len(column.relationship) == 0) or not skip:
-                    table_schemas[f"{schema.name}.{table.name}"].append({
-                        "name": column.name,
-                        "type": column.type,
-                        "primary_key": column.primary_key
-                    })
+                table_schemas[f"{schema.name}.{table.name}"].append({
+                    "name": column.name,
+                    "type": column.type,
+                    "primary_key": column.primary_key
+                })
 
     return table_schemas
 
@@ -77,8 +76,10 @@ def is_potential_fk(from_col, to_table, to_col, synonyms):
     likely_match = (
             from_name == to_name or
             from_name == f"{to_table_norm}{to_name}" or
+            any(from_name == f"{to_table_norm}{to_name}{syn}".lower() for syn in synonyms) or
             any(from_name == f"{to_table_norm}{syn}".lower() for syn in synonyms) or
             any(from_name.endswith(syn.lower()) and to_name in [s.lower() for s in synonyms] for syn in synonyms) or
+            any(to_name.endswith(syn.lower()) and from_name in [s.lower() for s in synonyms] for syn in synonyms) or
             (from_name.replace(to_table_norm, '') in [s.lower() for s in synonyms] and to_name in [s.lower() for s in synonyms])
     )
 
@@ -127,12 +128,22 @@ async def get_distinct_values(schema, table, column, db):
         logger.exception(f"Failed to get distinct values from {table}.{column}: {e}")
         return []
 
-async def infer_relationships_per_column(schema: str, table: str, column: str, column_type: str, table_schemas, synonyms, db, threshold=0.7) -> list[RelationshipOut]:
+async def infer_relationships_per_column(schema: str, table: str, column: str, column_type: str, table_schemas, synonyms, db, existingRelationship: list[ConnectionSchemaTableColumnRelationship], threshold=0.7) -> list[RelationshipOut]:
     relationships = []
     for to_table, to_cols in table_schemas.items():
         if f"{schema}.{table}" == to_table:
             continue
         for to_col in to_cols:
+            if existingRelationship is not None and len(existingRelationship) > 0:
+                for relationship in existingRelationship:
+                    if relationship.schema_name == to_table.split(".")[0] and relationship.table == to_table.split(".")[1] and relationship.column == to_col["name"]:
+                        relationships.append(RelationshipOut(
+                            schema_name=relationship.schema_name,
+                            table=relationship.table,
+                            column=relationship.column,
+                            enabled=relationship.enabled,
+                        ))
+                        continue
             if is_potential_fk(column, to_table.split(".")[1], to_col, synonyms):
                 overlap = await validate_fk_by_value_overlap(f"{schema}.{table}", column, to_table, to_col["name"], db, column_type, to_col["type"])
                 if overlap >= threshold:
@@ -147,24 +158,20 @@ async def infer_relationships_per_column(schema: str, table: str, column: str, c
 
 async def infer_relationships(options: ConnectionOptions, table_schemas, synonyms, db, threshold=0.7):
     for schema in options.schemas:
-        for from_table in schema.tables:
-            for to_table, to_cols in table_schemas.items():
-                if f"{schema}.{from_table.name}" == to_table:
-                    continue
-                for from_col in from_table.columns:
-                    relationships = []
-                    for to_col in to_cols:
-                        if is_potential_fk(from_col.name, to_table.split(".")[1], to_col, synonyms):
-                            overlap = await validate_fk_by_value_overlap(f"{schema}.{from_table.name}", from_col.name, to_table, to_col["name"], db, from_col.type, to_col["type"])
-                            if overlap >= threshold:
-                                relationships.append(ConnectionSchemaTableColumnRelationship(
-                                    schema_name=to_table.split(".")[0],
-                                    table=to_table.split(".")[1],
-                                    column=to_col["name"],
-                                    enabled=True,
-                                ))
-                    from_col.relationship = relationships
-
+        if schema.enabled:
+            for from_table in schema.tables:
+                if from_table.enabled:
+                    for from_col in from_table.columns:
+                        if from_col.enabled:
+                            relationships = await infer_relationships_per_column(schema.name, from_table.name, from_col.name, from_col.type, table_schemas, synonyms, db, from_col.relationship, threshold)
+                            if len(relationships) > 0:
+                                from_col.relationship = [ConnectionSchemaTableColumnRelationship(
+                                        schema_name=relationship.schema_name,
+                                        table=relationship.table,
+                                        column=relationship.column,
+                                        enabled=relationship.enabled,
+                                    )
+                                    for relationship in relationships]
     return ConnectionOptions(schemas=options.schemas)
 
 
@@ -386,6 +393,8 @@ class ConnectionService:
         url = make_url(data.dsn)
         query = url.query
         generate_columns = query.get("generate_columns", "false").lower() == "true"
+        if not generate_columns:
+            raise ValidationError("Please include generate_columns query param in the dsn")
         generate_descriptions = True
         current_connection = await self.get_connection(session, connection_uuid)
         old_options = (
@@ -409,7 +418,7 @@ class ConnectionService:
         old_options = (
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
-        return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options, skip=False), synonyms=synonyms, db=db, threshold=0.1)
+        return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existingRelationship=[], threshold=0.0001)
 
     async def get_possible_values_per_column(self, session: AsyncSession, connection_uuid: UUID, schema: str, table: str, column: str
                                                 ) -> list:
@@ -438,7 +447,7 @@ class ConnectionService:
         synonyms = [t.strip() for t in fk_synonyms.split(",")] if fk_synonyms else []
         if len(synonyms) == 0:
             raise ValidationError("foreign key synonyms are not defined in dsn")
-        update.options = await infer_relationships(old_options, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, threshold=0.1)
+        update.options = await infer_relationships(old_options, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, threshold=0.0001)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 

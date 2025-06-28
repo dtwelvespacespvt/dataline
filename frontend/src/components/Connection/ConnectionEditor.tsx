@@ -37,6 +37,8 @@ const SchemaEditor = ({
   const [expanded, setExpanded] = useState(
     Object.fromEntries(options.schemas.map((schema) => [schema.name, false]))
   );
+  const [loadingPossibleValuesMap, setLoadingPossibleValuesMap] = useState<Record<string, boolean>>({});
+  const [loadingRelationshipsMap, setLoadingRelationshipsMap] = useState<Record<string, boolean>>({});
 
   const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index, relation_index = -1 }: {
     value: unknown, name: string, column_index: number, table_index: number, schema_index: number, relation_index: number
@@ -51,20 +53,40 @@ const SchemaEditor = ({
     setOptions(newOptions);
   }
 
+  const tableDescriptionFieldChangeHandler = ({ value, table_index, schema_index }: {
+    value: unknown, table_index: number, schema_index: number
+  }) => {
+    const newOptions = structuredClone(options);
+    const table = newOptions?.schemas?.[schema_index]?.tables?.[table_index]
+    table.description = value
+    setOptions(newOptions);
+  }
+
   const updatePossibleValues = async (connectionId: string, schema_name: string, table_name: string, column_name: string, column_index: number, table_index: number, schema_index: number,) => {
-    const result = await api.getPossibleValues(connectionId, schema_name, table_name, column_name);
-    if (result?.data && Array.isArray(result?.data)) {
-      columnFieldChangeHandler({ value: result?.data, name: "possible_values", column_index, table_index, schema_index });
+     const key = `${schema_index}-${table_index}-${column_index}`;
+    setLoadingPossibleValuesMap(prev => ({ ...prev, [key]: true }));
+    try {
+      const result = await api.getPossibleValues(connectionId, schema_name, table_name, column_name);
+      if (result?.data && Array.isArray(result?.data)) {
+        columnFieldChangeHandler({ value: result?.data, name: "possible_values", column_index, table_index, schema_index });
+      }
+    } finally {
+      setLoadingPossibleValuesMap(prev => ({ ...prev, [key]: false }));
     }
   }
 
   const updateRelationships = async (connectionId: string, schema_name: string, table_name: string, column_name: string, column_type: string, column_index: number, table_index: number, schema_index: number,) => {
-    const result = await api.getReletionships(connectionId, schema_name, table_name, column_name, column_type);
-    if (result?.data && Array.isArray(result?.data)) {
-      columnFieldChangeHandler({ value: result?.data, name: "relationship", column_index, table_index, schema_index });
+    const key = `${schema_index}-${table_index}-${column_index}`;
+    setLoadingRelationshipsMap(prev => ({ ...prev, [key]: true }));
+    try {
+      const result = await api.getRelationships(connectionId, schema_name, table_name, column_name, column_type);
+      if (result?.data && Array.isArray(result?.data)) {
+        columnFieldChangeHandler({ value: result?.data, name: "relationship", column_index, table_index, schema_index });
+      }
+    } finally {
+      setLoadingRelationshipsMap(prev => ({ ...prev, [key]: false }));
     }
   }
-
 
   return (
     <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
@@ -175,15 +197,31 @@ const SchemaEditor = ({
                         >
                           {table.name}
                         </span>
-                        <ChevronDownIcon
-                          className={classNames(
-                            "size-5 fill-white/60 group-hover:fill-white/50",
-                            expanded[`${schema.name}_${table.name}`] ? "rotate-180" : ""
-                          )}
-                        />
+                        {table?.description &&
+                          <span className="mx-1 text-white/70">:</span>
+                        }
+                        {table?.description &&
+                          <input
+                            type="text"
+                            name="name"
+                            disabled={false}
+                            value={table?.description}
+                            onChange={(e) => tableDescriptionFieldChangeHandler({ value: e.target.value, table_index, schema_index })}
+                            className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                          />}
+                        {table?.description &&
+                          <span className="mx-1 text-white/70"></span>
+                        }
+                        {table?.description &&
+                          <ChevronDownIcon
+                            className={classNames(
+                              "size-5 fill-white/60 group-hover:fill-white/50",
+                              expanded[`${schema.name}_${table.name}`] ? "rotate-180" : ""
+                            )}
+                          />}
                       </div>
                     </div>
-                    <Transition show={expanded[`${schema.name}_${table.name}`] || false}>
+                    {table?.description && <Transition show={expanded[`${schema.name}_${table.name}`] || false}>
                       <div className="transition ease-in-out translate-x-0 data-[closed]:opacity-0 data-[closed]:-translate-y-3">
                         <div className="w-full overflow-auto pt-5">
                           <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
@@ -267,7 +305,7 @@ const SchemaEditor = ({
                                             <ArrowPathIcon
                                               className={classNames(
                                                 "w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6",
-                                                // isRefreshing ? "animate-spin" : ""
+                                                loadingPossibleValuesMap[`${schema_index}-${table_index}-${column_index}`] ? "animate-spin" : ""
                                               )}
                                             />
                                           </Button>
@@ -302,7 +340,7 @@ const SchemaEditor = ({
                                               <ArrowPathIcon
                                                 className={classNames(
                                                   "w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6",
-                                                  // isRefreshing ? "animate-spin" : ""
+                                                  loadingRelationshipsMap[`${schema_index}-${table_index}-${column_index}`] ? "animate-spin" : ""
                                                 )}
                                               />
                                             </Button>
@@ -375,7 +413,7 @@ const SchemaEditor = ({
                           </table>
                         </div>
                       </div>
-                    </Transition>
+                    </Transition>}
                   </div>
                 ))}
               </div>

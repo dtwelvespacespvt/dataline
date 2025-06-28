@@ -1,16 +1,5 @@
 import { isAxiosError } from "axios";
-import {
-  IConnection,
-  DatabaseFileType,
-  IConversationWithMessagesWithResultsOut,
-  IMessageOptions,
-  IMessageOut,
-  IMessageWithResultsOut,
-  IResult,
-  IUserInfo,
-  PossibleValuesResult,
-  ReletionshipsResult,
-} from "./components/Library/types";
+import * as types from "./components/Library/types";
 import { IEditConnection } from "./components/Library/types";
 import {
   apiURL,
@@ -57,7 +46,7 @@ const hasAuth = async (): Promise<boolean> => {
   return true;
 };
 
-type ConnectResult = ApiResponse<IConnection>;
+type ConnectResult = ApiResponse<types.IConnection>;
 const createConnection = async (
   connectionString: string,
   name: string,
@@ -90,7 +79,7 @@ const createSampleConnection = async (
 const createFileConnection = async (
   file: File,
   name: string,
-  type: DatabaseFileType
+  type: types.DatabaseFileType
 ): Promise<ConnectResult> => {
   const formData = new FormData();
   formData.append("file", file);
@@ -105,14 +94,14 @@ const createFileConnection = async (
 };
 
 export type ListConnectionsResult = ApiResponse<{
-  connections: IConnection[];
+  connections: types.IConnection[];
 }>;
 const listConnections = async (): Promise<ListConnectionsResult> => {
   return (await backendApi<ListConnectionsResult>({ url: "/connections" }))
     .data;
 };
 
-export type GetConnectionResult = ApiResponse<IConnection>;
+export type GetConnectionResult = ApiResponse<types.IConnection>;
 const getConnection = async (
   connectionId: string
 ): Promise<GetConnectionResult> => {
@@ -136,7 +125,7 @@ const getSamples = async (): Promise<GetSamplesResult> => {
 };
 
 export type UpdateConnectionResult = ApiResponse<{
-  connection: IConnection;
+  connection: types.IConnection;
 }>;
 const updateConnection = async (
   connectionId: string,
@@ -199,7 +188,7 @@ const createConversation = async (connectionId: string, name: string) => {
   return response.data;
 };
 
-export type RefreshConnectionSchemaResult = ApiResponse<IConnection>;
+export type RefreshConnectionSchemaResult = ApiResponse<types.IConnection>;
 const refreshConnectionSchema = async (
   connectionId: string
 ): Promise<RefreshConnectionSchemaResult> => {
@@ -248,13 +237,13 @@ const deleteConversation = async (conversationId: string) => {
 };
 
 export type ListConversations = ApiResponse<
-  IConversationWithMessagesWithResultsOut[]
+  types.IConversationWithMessagesWithResultsOut[]
 >;
 const listConversations = async (): Promise<ListConversations> => {
   return (await backendApi<ListConversations>({ url: "/conversations" })).data;
 };
 
-export type GetMessagesResponse = ApiResponse<IMessageWithResultsOut[]>;
+export type GetMessagesResponse = ApiResponse<types.IMessageWithResultsOut[]>;
 const getMessages = async (
   conversationId: string
 ): Promise<GetMessagesResponse> => {
@@ -281,14 +270,14 @@ const createMessage = async (conversationId: number, content: string) => {
 export const DEFAULT_OPTIONS = { secure_data: true };
 
 export type QueryOut = ApiResponse<{
-  human_message: IMessageOut;
-  ai_message: IMessageWithResultsOut;
+  human_message: types.IMessageOut;
+  ai_message: types.IMessageWithResultsOut;
 }>;
 const query = async (
   conversationId: string,
   query: string,
   execute: boolean,
-  message_options: IMessageOptions = DEFAULT_OPTIONS
+  message_options: types.IMessageOptions = DEFAULT_OPTIONS
 ): Promise<QueryOut> => {
   return (
     await backendApi<QueryOut>({
@@ -311,7 +300,7 @@ const streamingQuery = async ({
   conversationId: string;
   query: string;
   execute?: boolean;
-  message_options: IMessageOptions;
+  message_options: types.IMessageOptions;
   onMessage: (event: string, data: string) => void;
   onClose?: () => void;
 }): Promise<void> => {
@@ -344,7 +333,7 @@ const streamingQuery = async ({
   });
 };
 
-export type RunSQLResult = ApiResponse<IResult>;
+export type RunSQLResult = ApiResponse<types.IResult>;
 const runSQL = async (
   conversationId: string,
   code: string,
@@ -382,7 +371,7 @@ const updateAvatar = async (file: File) => {
 };
 
 // Optional name or openai_api_key
-export type UpdateUserInfoResult = ApiResponse<IUserInfo>;
+export type UpdateUserInfoResult = ApiResponse<types.IUserInfo>;
 const updateUserInfo = async (options: {
   name?: string;
   openai_api_key?: string;
@@ -400,7 +389,7 @@ const updateUserInfo = async (options: {
     analytics_enabled,
   } = options;
   // send only the filled in fields
-  const data: Partial<IUserInfo> = {
+  const data: Partial<types.IUserInfo> = {
     ...(name && { name }),
     ...(openai_api_key && { openai_api_key }),
     ...(sentry_enabled != null && { sentry_enabled }),
@@ -423,7 +412,7 @@ const updateUserInfo = async (options: {
   return response.data;
 };
 
-export type GetUserInfoResult = ApiResponse<IUserInfo>;
+export type GetUserInfoResult = ApiResponse<types.IUserInfo>;
 const getUserInfo = async () => {
   return (await backendApi<GetUserInfoResult>({ url: `/settings/info` })).data;
 };
@@ -488,7 +477,7 @@ const getExportDataUrl = (resultId: string) => {
   return `${baseURL}result/${resultId}/export-csv`;
 };
 
-export type GetPossibleValuesResult = ApiResponse<PossibleValuesResult>;
+export type GetPossibleValuesResult = ApiResponse<types.PossibleValuesResult>;
 const getPossibleValues = async (
   connectionId: string,
   schema_name: string,
@@ -502,16 +491,16 @@ const getPossibleValues = async (
   ).data;
 };
 
-export type GetReletionshipsResult = ApiResponse<ReletionshipsResult>;
-const getReletionships = async (
+export type GetRelationshipsResult = ApiResponse<types.RelationshipsResult>;
+const getRelationships = async (
   connectionId: string,
   schema_name: string,
   table_name: string,
   column_name: string,
   column_type: string
-): Promise<GetReletionshipsResult> => {
+): Promise<GetRelationshipsResult> => {
   return (
-    await backendApi<GetReletionshipsResult>({
+    await backendApi<GetRelationshipsResult>({
       url: `/connection/${connectionId}/generate/relationships/${schema_name}/${table_name}/${column_name}/${column_type}`,
     })
   ).data;
@@ -551,5 +540,5 @@ export const api = {
   refreshChart,
   getExportDataUrl,
   getPossibleValues,
-  getReletionships
+  getRelationships
 };
