@@ -58,6 +58,13 @@ const SchemaEditor = ({
     }
   }
 
+  const updateRelationships = async (connectionId: string, schema_name: string, table_name: string, column_name: string, column_type: string, column_index: number, table_index: number, schema_index: number,) => {
+    const result = await api.getReletionships(connectionId, schema_name, table_name, column_name, column_type);
+    if (result?.data && Array.isArray(result?.data)) {
+      columnFieldChangeHandler({ value: result?.data, name: "relationship", column_index, table_index, schema_index });
+    }
+  }
+
 
   return (
     <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
@@ -285,7 +292,21 @@ const SchemaEditor = ({
                                     <Transition show={expanded[`${schema.name}_${table.name}_${column.name}`] || false}>
                                       <tr className="transition ease-in-out translate-x-0 data-[closed]:opacity-0 data-[closed]:-translate-y-3">
                                         <td className="p-5" colSpan={7}>
-                                          <h3>Relationship Table</h3>
+                                          <div className="flex items-center gap-x-2">
+                                            <h3>Relationship Table</h3>
+                                            <Button
+                                              onClick={() => updateRelationships(connectionId, schema?.name, table?.name, column?.name || "", column?.type || "", column_index, table_index, schema_index)}
+                                              plain
+                                              disabled={false}
+                                            >
+                                              <ArrowPathIcon
+                                                className={classNames(
+                                                  "w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6",
+                                                  // isRefreshing ? "animate-spin" : ""
+                                                )}
+                                              />
+                                            </Button>
+                                          </div>
                                           <div className="w-full overflow-auto pt-2">
                                             <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
                                               <thead>
