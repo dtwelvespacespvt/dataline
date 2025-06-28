@@ -5,7 +5,7 @@ authors = [
 ]
 requires-python = "<3.12,>=3.11"
 dependencies = [
-    "sqlalchemy-redshift @ git+https://github.com/dtwelvespacespvt/sqlalchemy-redshift.git@develop",
+    "sqlalchemy-redshift @ git+https://github.com/dtwelvespacespvt/sqlalchemy-redshift.git@develop#egg=sqlalchemy-redshift",
     "redshift-connector>=2.0.909",
     "fastapi==0.105.0",
     "uvicorn[standard]<1.0.0,>=0.21.1",

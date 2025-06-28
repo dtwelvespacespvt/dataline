@@ -203,10 +203,10 @@ const SchemaEditor = ({
                         >
                           {table.name}
                         </span>
-                        {table?.description &&
+                        {(table?.columns as []).length > 0 &&
                           <span className="mx-1 text-white/70">:</span>
                         }
-                        {table?.description &&
+                        {(table?.columns as []).length > 0 &&
                           <input
                             type="text"
                             name="name"
@@ -215,10 +215,10 @@ const SchemaEditor = ({
                             onChange={(e) => tableDescriptionFieldChangeHandler({ value: e.target.value, table_index, schema_index })}
                             className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                           />}
-                        {table?.description &&
+                        {(table?.columns as []).length > 0 &&
                           <span className="mx-1 text-white/70"></span>
                         }
-                        {table?.description &&
+                        {(table?.columns as []).length > 0 &&
                           <ChevronDownIcon
                             className={classNames(
                               "size-5 fill-white/60 group-hover:fill-white/50",
@@ -227,7 +227,7 @@ const SchemaEditor = ({
                           />}
                       </div>
                     </div>
-                    {table?.description && <Transition show={expanded[`${schema.name}_${table.name}`] || false}>
+                    {(table?.columns as []).length > 0 && <Transition show={expanded[`${schema.name}_${table.name}`] || false}>
                       <div className="transition ease-in-out translate-x-0 data-[closed]:opacity-0 data-[closed]:-translate-y-3">
                         <div className="w-full overflow-auto pt-5">
                           <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
