@@ -9,6 +9,7 @@ import {
   IResult,
   IUserInfo,
   PossibleValuesResult,
+  ReletionshipsResult,
 } from "./components/Library/types";
 import { IEditConnection } from "./components/Library/types";
 import {
@@ -501,6 +502,21 @@ const getPossibleValues = async (
   ).data;
 };
 
+export type GetReletionshipsResult = ApiResponse<ReletionshipsResult>;
+const getReletionships = async (
+  connectionId: string,
+  schema_name: string,
+  table_name: string,
+  column_name: string,
+  column_type: string
+): Promise<GetReletionshipsResult> => {
+  return (
+    await backendApi<GetReletionshipsResult>({
+      url: `/connection/${connectionId}/generate/relationships/${schema_name}/${table_name}/${column_name}/${column_type}`,
+    })
+  ).data;
+};
+
 export const api = {
   healthcheck,
   hasAuth,
@@ -534,5 +550,6 @@ export const api = {
   getUserInfo,
   refreshChart,
   getExportDataUrl,
-  getPossibleValues
+  getPossibleValues,
+  getReletionships
 };
