@@ -82,7 +82,9 @@ def is_potential_fk(from_col, to_table, to_col, synonyms):
             any(from_name == f"{to_table_norm}{syn}".lower() for syn in synonyms) or
             any(from_name.endswith(syn.lower()) and to_name in [s.lower() for s in synonyms] for syn in synonyms) or
             any(to_name.endswith(syn.lower()) and from_name in [s.lower() for s in synonyms] for syn in synonyms) or
-            (from_name.replace(to_table_norm, '') in [s.lower() for s in synonyms] and to_name in [s.lower() for s in synonyms])
+            (from_name.replace(to_table_norm, '') in [s.lower() for s in synonyms] and to_name in [s.lower() for s in synonyms]) or
+            any(from_name.endswith(syn.lower()) and any(to_name.endswith(s.lower()) for s in synonyms) for syn in synonyms) or
+            any(to_name.endswith(syn.lower()) and any(from_name.endswith(s.lower()) for s in synonyms) for syn in synonyms)
     )
 
     return likely_match
@@ -113,7 +115,9 @@ async def validate_fk_by_value_overlap(from_table, from_column, to_table, to_col
         with db._engine.connect() as conn:
             matches = conn.execute(query).scalar() or 0
             total = conn.execute(total_query).scalar() or 1  # avoid div by zero
-            return matches / total
+            overlap = matches / total
+            logger.info(f"[INFO] {from_table}.{from_column} → {to_table}.{to_column} ({to_base}) -> {overlap}")
+            return overlap
     except Exception as e:
         logger.exception(f"Overlap validation failed for {from_table}.{from_column} -> {to_table}.{to_column}: {e}")
         return 0.0
