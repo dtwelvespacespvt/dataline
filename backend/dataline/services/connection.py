@@ -54,13 +54,16 @@ logger = logging.getLogger(__name__)
 def fetch_table_schemas(options: ConnectionOptions):
     table_schemas = defaultdict(list)
     for schema in options.schemas:
-        for table in schema.tables:
-            for column in table.columns:
-                table_schemas[f"{schema.name}.{table.name}"].append({
-                    "name": column.name,
-                    "type": column.type,
-                    "primary_key": column.primary_key
-                })
+        if schema.enabled:
+            for table in schema.tables:
+                if table.enabled:
+                    for column in table.columns:
+                        if column.enabled:
+                            table_schemas[f"{schema.name}.{table.name}"].append({
+                                "name": column.name,
+                                "type": column.type,
+                                "primary_key": column.primary_key
+                            })
 
     return table_schemas
 
@@ -126,6 +129,8 @@ async def validate_fk_by_value_overlap(from_table, from_column, to_table, to_col
     try:
         with db._engine.connect() as conn:
             matches = conn.execute(query).scalar() or 0
+            if matches == 0:
+                return 0.0
             total = conn.execute(total_query).scalar() or 1  # avoid div by zero
             overlap = matches / total
             logger.info(f"[INFO] {from_table}.{from_column} → {to_table}.{to_column} ({to_base}) -> {overlap}")
