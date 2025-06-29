@@ -8,14 +8,33 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dataline.config import config
 
 
-class ConnecitonSchemaTable(BaseModel):
+class ConnectionSchemaTableColumnRelationship(BaseModel):
+    schema_name: Optional[str] = None
+    table: Optional[str] = None
+    column: Optional[str] = None
+    enabled: Optional[bool] = False
+
+
+class ConnectionSchemaTableColumn(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    possible_values: Optional[list[str]] = []
+    primary_key: Optional[bool] = False
+    description: Optional[str] = None
+    relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
+    enabled: Optional[bool] = False
+
+
+class ConnectionSchemaTable(BaseModel):
     name: str
     enabled: bool
+    columns: Optional[list[ConnectionSchemaTableColumn]] = []
+    description: Optional[str] = None
 
 
 class ConnectionSchema(BaseModel):
     name: str
-    tables: list[ConnecitonSchemaTable]
+    tables: list[ConnectionSchemaTable]
     enabled: bool
 
 
@@ -95,6 +114,13 @@ class SampleOut(BaseModel):
     link: str
 
 
+class RelationshipOut(BaseModel):
+    schema_name: str
+    table: str
+    column: str
+    enabled: bool
+
+
 def validate_dsn(value: str) -> str:
     # Regular expression pattern for matching DSNs
     # Try sqlite first
@@ -140,6 +166,8 @@ def validate_dsn(value: str) -> str:
         value = value.replace("mysql", "mysql+pymysql", 1)
     elif value.startswith("mssql"):
         value = value.replace("mssql", "mssql+pyodbc", 1)
+    elif value.startswith("redshift"):
+        value = value.replace("redshift", "redshift+redshift_connector", 1)
 
     return value
 

@@ -40,6 +40,9 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
     call,
 )
 from dataline.services.llm_flow.utils import DatalineSQLDatabase as SQLDatabase
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class QueryGraphStateUpdate(TypedDict):
@@ -222,7 +225,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         valid_tables = self._validate_sanitize_table_names(table_names, available_names)
 
         self.table_names = list(valid_tables)
-        return self.db.get_table_info_no_throw(self.table_names)
+        return self.db.get_table_info(self.table_names)
 
     def get_response(  # type: ignore[misc]
         self,
@@ -452,8 +455,8 @@ class SQLDatabaseToolkit(BaseToolkit):
         query_sql_database_tool = QuerySQLDataBaseTool(db=self.db, description=query_sql_database_tool_description)
 
         tools = [
-            info_sql_database_tool,
             list_sql_database_tool,
+            info_sql_database_tool,
         ]
 
         if allow_execution:

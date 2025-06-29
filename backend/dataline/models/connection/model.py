@@ -9,9 +9,27 @@ if TYPE_CHECKING:
     from dataline.models.conversation.model import ConversationModel
 
 
+class ConnectionSchemaTableColumnRelationship(TypedDict):
+    schema_name: str
+    table: str
+    column: str
+    enabled: bool
+
+
+class ConnectionSchemaTableColumn(TypedDict):
+    name: str
+    possible_values: list[str]
+    primary_key: bool
+    description: str
+    relationship: list[ConnectionSchemaTableColumnRelationship]
+    enabled: bool
+
+
 class ConnectionSchemaTable(TypedDict):
     name: str
     enabled: bool
+    columns: list[ConnectionSchemaTableColumn]
+    description: str
 
 
 class ConnectionSchema(TypedDict):

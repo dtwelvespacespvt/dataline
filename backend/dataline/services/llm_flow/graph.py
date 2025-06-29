@@ -12,6 +12,7 @@ from dataline.models.llm_flow.schema import QueryOptions, ResultType
 from dataline.services.llm_flow.nodes import (
     CallModelNode,
     CallToolNode,
+    ReturnNode,
     Condition,
     Node,
     ShouldCallToolCondition,
@@ -81,7 +82,7 @@ class QueryGraphService:
             "tool_executor": self.tool_executor,
         }
 
-        config: RunnableConfig | None = {"callbacks": [self.tracer]} if self.tracer is not None else None
+        config: RunnableConfig | None = {"callbacks": [self.tracer], "recursion_limit": 100} if self.tracer is not None else None
         current_results: Sequence[ResultType] | None
         current_messages: Sequence[BaseMessage] | None
         async for chunk in app.astream(initial_state, config=config):
@@ -93,12 +94,17 @@ class QueryGraphService:
     def build_graph(self) -> StateGraph:
         # Create the graph
         graph = StateGraph(QueryGraphState)
+
+        # Register nodes
         add_node(graph, CallModelNode)
         add_node(graph, CallToolNode)
 
-        add_conditional_edge(graph, CallModelNode, ShouldCallToolCondition)
-        add_edge(graph, CallToolNode, CallModelNode)
+        # Entry point
         graph.set_entry_point(CallModelNode.__name__)
+
+        # Decision-making logic
+        add_conditional_edge(graph, CallModelNode, ShouldCallToolCondition)
+        add_edge(graph, CallToolNode, CallModelNode)  # Loop back after tool use
 
         return graph
 
