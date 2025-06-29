@@ -97,7 +97,7 @@ async def validate_fk_by_value_overlap(from_table, from_column, to_table, to_col
     to_base = normalize_sql_type(to_type)
     if from_base != to_base:
         logger.info(f"[INFO] Casting {to_table}.{to_column} ({to_base}) → {from_base} to match")
-        casted_to_column = f"CAST({to_column} AS {from_base})"
+        return 0.0
     else:
         casted_to_column = to_column
 
@@ -299,7 +299,7 @@ class ConnectionService:
             table_description, column_descriptions = await self.enrich_table_with_llm(session, table, columns) \
                 if generate_descriptions and len(columns) > 0 else ("", {})
             if connection_schema_table is None:
-                enabled = False
+                enabled = True
             else:
                 enabled = connection_schema_table.enabled
             return ConnectionSchemaTable(
