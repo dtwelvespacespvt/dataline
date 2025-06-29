@@ -94,7 +94,8 @@ async def validate_fk_by_value_overlap(from_table, from_column, to_table, to_col
                                        from_type: str, to_type: str
                                        , ignore_columns_in_relationship: list[str]
                                        , ignore_types_in_relationship: list[str]
-                                       , ignore_comparisons_in_relationship: list[str]):
+                                       , ignore_comparisons_in_relationship: list[str]
+                                       , ignore_prefix_in_relationship: list[str]):
     def normalize_sql_type(t):
         return t.lower().split('(')[0].strip()
 
@@ -105,6 +106,8 @@ async def validate_fk_by_value_overlap(from_table, from_column, to_table, to_col
     if from_base in ignore_types_in_relationship:
         return 0.0
     if from_column == to_column and from_column in ignore_comparisons_in_relationship:
+        return 0.0
+    if any(from_column.startswith(_value) for _value in ignore_prefix_in_relationship):
         return 0.0
     if from_base != to_base:
         logger.info(f"[INFO] Casting {to_table}.{to_column} ({to_base}) → {from_base} to match")
@@ -163,6 +166,7 @@ async def infer_relationships_per_column(schema: str, table: str, column: str, c
                                          , ignore_columns_in_relationship: list[str]
                                          , ignore_types_in_relationship: list[str]
                                          , ignore_comparisons_in_relationship: list[str]
+                                         , ignore_prefix_in_relationship: list[str]
                                          , threshold=0.7) -> list[RelationshipOut]:
     relationships = []
     for to_table, to_cols in table_schemas.items():
@@ -183,7 +187,8 @@ async def infer_relationships_per_column(schema: str, table: str, column: str, c
                 overlap = await validate_fk_by_value_overlap(f"{schema}.{table}", column, to_table, to_col["name"], db, column_type, to_col["type"]
                                                              , ignore_columns_in_relationship
                                                              , ignore_types_in_relationship
-                                                             , ignore_comparisons_in_relationship)
+                                                             , ignore_comparisons_in_relationship
+                                                             , ignore_prefix_in_relationship)
                 if overlap >= threshold:
                     relationships.append(RelationshipOut(
                         schema_name=to_table.split(".")[0],
@@ -198,6 +203,7 @@ async def infer_relationships(options: ConnectionOptions, table_schemas, synonym
                               , ignore_columns_in_relationship: list[str]
                               , ignore_types_in_relationship: list[str]
                               , ignore_comparisons_in_relationship: list[str]
+                              , ignore_prefix_in_relationship: list[str]
                               , threshold=0.7):
     for schema in options.schemas:
         if schema.enabled:
@@ -205,7 +211,7 @@ async def infer_relationships(options: ConnectionOptions, table_schemas, synonym
                 if from_table.enabled:
                     for from_col in from_table.columns:
                         if from_col.enabled:
-                            relationships = await infer_relationships_per_column(schema.name, from_table.name, from_col.name, from_col.type, table_schemas, synonyms, db, from_col.relationship, ignore_columns_in_relationship, ignore_types_in_relationship, ignore_comparisons_in_relationship, threshold)
+                            relationships = await infer_relationships_per_column(schema.name, from_table.name, from_col.name, from_col.type, table_schemas, synonyms, db, from_col.relationship, ignore_columns_in_relationship, ignore_types_in_relationship, ignore_comparisons_in_relationship, ignore_prefix_in_relationship, threshold)
                             if len(relationships) > 0:
                                 from_col.relationship = [ConnectionSchemaTableColumnRelationship(
                                         schema_name=relationship.schema_name,
@@ -463,10 +469,12 @@ class ConnectionService:
         ignore_types_in_relationship = [t.strip() for t in str_ignore_types_in_relationship.split(",")] if str_ignore_types_in_relationship else []
         str_ignore_comparisons_in_relationship = query.get("ignore_comparisons_in_relationship")
         ignore_comparisons_in_relationship = [t.strip() for t in str_ignore_comparisons_in_relationship.split(",")] if str_ignore_comparisons_in_relationship else []
+        str_ignore_prefix_in_relationship = query.get("ignore_prefix_in_relationship")
+        ignore_prefix_in_relationship = [t.strip() for t in str_ignore_prefix_in_relationship.split(",")] if str_ignore_prefix_in_relationship else []
         old_options = (
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
-        return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existing_relationship=[], ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, threshold=0.0001)
+        return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existing_relationship=[], ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.005)
 
     async def get_possible_values_per_column(self, session: AsyncSession, connection_uuid: UUID, schema: str, table: str, column: str
                                                 ) -> list:
@@ -501,7 +509,9 @@ class ConnectionService:
         ignore_types_in_relationship = [t.strip() for t in str_ignore_types_in_relationship.split(",")] if str_ignore_types_in_relationship else []
         str_ignore_comparisons_in_relationship = query.get("ignore_comparisons_in_relationship")
         ignore_comparisons_in_relationship = [t.strip() for t in str_ignore_comparisons_in_relationship.split(",")] if str_ignore_comparisons_in_relationship else []
-        update.options = await infer_relationships(old_options, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, threshold=0.0001)
+        str_ignore_prefix_in_relationship = query.get("ignore_prefix_in_relationship")
+        ignore_prefix_in_relationship = [t.strip() for t in str_ignore_prefix_in_relationship.split(",")] if str_ignore_prefix_in_relationship else []
+        update.options = await infer_relationships(old_options, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.005)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 

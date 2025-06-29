@@ -308,25 +308,29 @@ class DatalineSQLDatabase(SQLDatabase):
             if f"{tbl.schema}.{tbl.name}" in set(all_table_names)
             and not (self.dialect == "sqlite" and tbl.name.startswith("sqlite_"))
         ]
-
         tables = []
-        for table in meta_tables:
-            if self._custom_table_info and f"{table.schema}.{table.name}" in self._custom_table_info:
-                tables.append(json.dumps(self._custom_table_info[f"{table.schema}.{table.name}"]))
+        if len(meta_tables) > 0:
+            for table in meta_tables:
+                if self._custom_table_info and f"{table.schema}.{table.name}" in self._custom_table_info:
+                    tables.append(json.dumps(self._custom_table_info[f"{table.schema}.{table.name}"]))
 
-            # add create table command
-            create_table = str(CreateTable(table).compile(self._engine))
-            table_info = f"{create_table.rstrip()}"
-            has_extra_info = self._indexes_in_table_info or self._sample_rows_in_table_info
-            if has_extra_info:
-                table_info += "\n\n/*"
-            if self._indexes_in_table_info:
-                table_info += f"\n{self._get_table_indexes(table)}\n"
-            if self._sample_rows_in_table_info:
-                table_info += f"\n{self._get_sample_rows(table)}\n"
-            if has_extra_info:
-                table_info += "*/"
-            tables.append(table_info)
+                # add create table command
+                create_table = str(CreateTable(table).compile(self._engine))
+                table_info = f"{create_table.rstrip()}"
+                has_extra_info = self._indexes_in_table_info or self._sample_rows_in_table_info
+                if has_extra_info:
+                    table_info += "\n\n/*"
+                if self._indexes_in_table_info:
+                    table_info += f"\n{self._get_table_indexes(table)}\n"
+                if self._sample_rows_in_table_info:
+                    table_info += f"\n{self._get_sample_rows(table)}\n"
+                if has_extra_info:
+                    table_info += "*/"
+                tables.append(table_info)
+        else:
+            for table in set(all_table_names):
+                if self._custom_table_info and table in self._custom_table_info:
+                    tables.append(json.dumps(self._custom_table_info[table]))
         final_str = "\n\n".join(tables)
         logger.info(f"get_table_info {final_str}")
         return final_str
