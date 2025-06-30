@@ -479,7 +479,7 @@ class ConnectionService:
         old_options = (
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
-        return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existing_relationship=[], ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.3)
+        return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existing_relationship=[], ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.05)
 
     async def get_possible_values_per_column(self, session: AsyncSession, connection_uuid: UUID, schema: str, table: str, column: str
                                                 ) -> list:
@@ -516,7 +516,7 @@ class ConnectionService:
         ignore_comparisons_in_relationship = [t.strip() for t in str_ignore_comparisons_in_relationship.split(",")] if str_ignore_comparisons_in_relationship else []
         str_ignore_prefix_in_relationship = query.get("ignore_prefix_in_relationship")
         ignore_prefix_in_relationship = [t.strip() for t in str_ignore_prefix_in_relationship.split(",")] if str_ignore_prefix_in_relationship else []
-        update.options = await infer_relationships(old_options, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.3)
+        update.options = await infer_relationships(old_options, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.05)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
