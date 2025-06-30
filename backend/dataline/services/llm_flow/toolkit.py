@@ -537,7 +537,7 @@ class ChartGeneratorTool(StateUpdaterTool):
         chart_type = ChartType[args["chart_type"]]
 
         generated_chart = call(
-            "gpt-4o-mini",
+            state.options.llm_model,
             response_model=GeneratedChart,
             prompt_fn=generate_chart_prompt,
             client_options=OpenAIClientOptions(
