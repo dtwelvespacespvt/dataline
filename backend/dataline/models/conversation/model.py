@@ -20,5 +20,6 @@ class ConversationModel(DBModel, UUIDMixin, kw_only=True):
     )
 
     # Relationships
-    messages: Mapped[list["MessageModel"]] = relationship("MessageModel", back_populates="conversation")
+    messages: Mapped[list["MessageModel"]] = relationship("MessageModel", back_populates="conversation",
+                                                          order_by="asc(MessageModel.created_at)")
     connection: Mapped["ConnectionModel"] = relationship("ConnectionModel", back_populates="conversations")

@@ -401,19 +401,39 @@ class _ListSQLTablesToolInput(BaseModel):
 
 
 class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
-    """Tool for getting tables names."""
+    """Tool for getting metadata about available tables."""
 
     name: str = ToolNames.LIST_SQL_TABLES
-    description: str = "Input is an empty string, output is a comma-separated list of tables in the database."
+    description: str = "Returns a list of table metadata including name, description, and column names. Input should be an empty string."
     args_schema: Type[BaseModel] = _ListSQLTablesToolInput
 
     def _run(  # type: ignore
         self,
         tool_input: str = "",
         run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> list[str]:
-        """Get a comma-separated list of table names."""
-        return list(self.db.get_usable_table_names())
+    ) -> list[dict]:
+        """Returns metadata for all usable tables (name, description, columns)."""
+        table_metadata = []
+
+        usable_tables = self.db.get_usable_table_names()
+        custom_table_data = getattr(self.db, "_custom_table_info", {})
+
+        for table_name in usable_tables:
+            table_info = custom_table_data.get(table_name, {})
+            description = table_info.get("description", "")
+            columns = [{"name": col.get("name"), "description": col.get("description"),
+                        "possible_values": col.get("possible_values"),
+                        "relationship": col.get("relationship"),
+                        "type": col.get("relationship")}
+                       for col in table_info.get("columns", []) if "enabled" in col and col["enabled"] and "name" in col]
+
+            table_metadata.append({
+                "name": table_name,
+                "description": description,
+                "columns": columns,
+            })
+
+        return table_metadata
 
 
 class SQLDatabaseToolkit(BaseToolkit):
@@ -436,7 +456,7 @@ class SQLDatabaseToolkit(BaseToolkit):
         list_sql_database_tool = ListSQLTablesTool(db=self.db)
         info_sql_database_tool_description = (
             "Input to this tool is a comma-separated list of tables, output is the "
-            "schema and sample rows for those tables."
+            "schema, its relationships with other table and sample rows for those tables."
             "Be sure that the tables actually exist by calling "
             f"{list_sql_database_tool.name} first! "
             "Example Input: table1, table2, table3"
@@ -517,7 +537,7 @@ class ChartGeneratorTool(StateUpdaterTool):
         chart_type = ChartType[args["chart_type"]]
 
         generated_chart = call(
-            "gpt-3.5-turbo",
+            "gpt-4o-mini",
             response_model=GeneratedChart,
             prompt_fn=generate_chart_prompt,
             client_options=OpenAIClientOptions(

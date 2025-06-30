@@ -298,7 +298,7 @@ const SchemaEditor = ({
                                           <input
                                             type="text"
                                             name="possible_values"
-                                            disabled={true}
+                                            disabled={loadingPossibleValuesMap[`${schema_index}-${table_index}-${column_index}`]}
                                             value={column?.possible_values?.join(",")}
                                             // onChange={(e) => columnFieldChangeHandler({ value: (e.target.value || "")?.split(","), name: "possible_values", column_index, table_index, schema_index })}
                                             className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
@@ -306,7 +306,7 @@ const SchemaEditor = ({
                                           <Button
                                             onClick={() => updatePossibleValues(connectionId, schema?.name, table?.name, column?.name || "", column_index, table_index, schema_index)}
                                             plain
-                                            disabled={false}
+                                            disabled={loadingPossibleValuesMap[`${schema_index}-${table_index}-${column_index}`]}
                                           >
                                             <ArrowPathIcon
                                               className={classNames(

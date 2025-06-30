@@ -332,5 +332,5 @@ class DatalineSQLDatabase(SQLDatabase):
                 if self._custom_table_info and table in self._custom_table_info:
                     tables.append(json.dumps(self._custom_table_info[table]))
         final_str = "\n\n".join(tables)
-        logger.info(f"get_table_info {final_str}")
+        logger.debug(f"get_table_info {final_str}")
         return final_str

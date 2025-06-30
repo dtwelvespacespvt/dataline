@@ -13,7 +13,7 @@ class SQLCorrectionDetails(BaseModel):
 @tags(["version:0001"])
 class QuerySQLCorrectorCall(OpenAIExtractor[SQLCorrectionDetails]):
     extract_schema: Type[SQLCorrectionDetails] = SQLCorrectionDetails
-    call_params = OpenAICallParams(model="gpt-3.5-turbo")
+    call_params = OpenAICallParams(model="gpt-4o-mini")
     api_key: str | None
 
     prompt_template = """
