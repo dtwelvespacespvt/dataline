@@ -107,7 +107,7 @@ const getConnection = async (
 ): Promise<GetConnectionResult> => {
   return (
     await backendApi<GetConnectionResult>({
-      url: `/connection/${connectionId}`,
+      url: `/api/connection/${connectionId}`,
     })
   ).data;
 };

@@ -98,7 +98,7 @@ async def connect_db_from_file(
         return SuccessResponse(data=connection)
 
 
-@router.get("/connection/{connection_id}")
+@router.get("/api/connection/{connection_id}")
 async def get_connection(
     connection_id: UUID,
     session: AsyncSession = Depends(get_session),
