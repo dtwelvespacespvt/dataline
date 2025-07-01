@@ -17,6 +17,7 @@ class ConnectionType(Enum):
     mysql = "mysql"
     snowflake = "snowflake"
     sas = "sas"
+    redshift = "redshift"
 
 
 class ConnectionCreate(BaseModel):

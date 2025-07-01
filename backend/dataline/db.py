@@ -13,6 +13,7 @@ def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:  #
     if type(dbapi_connection) is sqlite3.Connection:  # play well with other DB backends
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.close()
 
 
@@ -24,6 +25,7 @@ class DatabaseManager:
     def __enter__(self) -> SQLiteConnection:
         self.connection = sqlite3.connect(self.db_file)
         self.connection.execute("PRAGMA foreign_keys = ON")
+        self.connection.execute("PRAGMA journal_mode=WAL")
         return self.connection
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:  # type:ignore[misc]

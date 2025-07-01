@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import os
 
 from pydantic_settings import BaseSettings
 
@@ -10,6 +11,8 @@ IS_BUNDLED = bool(getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"))
 
 USER_DATA_DIR = user_data_dir(appname="DataLine")
 
+db_connection_string = os.environ.get("db_connection_string", "")
+db_type = os.environ.get("db_type", "sqlite")
 
 class EnvironmentType(str):
     development = "development"
@@ -22,6 +25,10 @@ class Config(BaseSettings):
     # Current dir / db.sqlite3
     sqlite_path: str = str(Path(USER_DATA_DIR) / "db.sqlite3")
     sqlite_echo: bool = False
+    use_sqlite: bool = db_type == "sqlite"
+    connection_string: str = db_connection_string
+    type: str = db_type
+    echo: bool = False
 
     # This is where all uploaded files are stored (ex. uploaded sqlite DBs)
     data_directory: str = str(Path(USER_DATA_DIR) / "data")
@@ -46,7 +53,8 @@ class Config(BaseSettings):
 
     # CORS settings
     allowed_origins: str = (
-        "http://localhost:7377,http://localhost:5173,http://0.0.0.0:7377,http://0.0.0.0:5173,http://127.0.0.1:7377,http://127.0.0.1:5173"  # comma separated list of origins
+        "http://localhost:7377,http://localhost:5173,http://0.0.0.0:7377,http://0.0.0.0:5173,http://127.0.0.1:7377,"
+        "http://127.0.0.1:5173"  # comma separated list of origins
     )
 
     @property

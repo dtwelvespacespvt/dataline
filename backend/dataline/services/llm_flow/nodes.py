@@ -77,6 +77,11 @@ class CallModelNode(Node):
         return state_update(messages=[response])
 
 
+class ReturnNode:
+    def __call__(self, state: QueryGraphState) -> QueryGraphState:
+        return state
+
+
 class CallToolNode(Node):
     __name__ = "perform_action"
 

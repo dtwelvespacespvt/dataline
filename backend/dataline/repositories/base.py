@@ -11,15 +11,25 @@ from sqlalchemy import Delete, Select, Update, delete, insert, select, text, upd
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from dataline.config import config
 
 # Load all sqlalchemy models
 from dataline.models import *  # noqa: F401, F403
 from dataline.models.base import DBModel
-from dataline.utils.utils import get_sqlite_dsn_async
+from dataline.utils.utils import get_sqlite_dsn_async, get_postgresql_dsn_async, get_mysql_dsn_async
 
-engine = create_async_engine(get_sqlite_dsn_async(config.sqlite_path))
+if config.use_sqlite:
+    engine = create_async_engine(get_sqlite_dsn_async(config.sqlite_path),
+                                 connect_args={"check_same_thread": False},
+                                 poolclass=StaticPool)
+elif config.type == "postgres":
+    engine = create_async_engine(get_postgresql_dsn_async(config.connection_string), echo=config.echo)
+elif config.type == "mysql":
+    engine = create_async_engine(get_mysql_dsn_async(config.connection_string), echo=config.echo)
+else:
+    raise ValueError(f"{config.type} not found")
 
 # We set expire_on_commit to False so that subsequent access to objects that came from a session do not
 # need to emit new SQL queries to refresh the objects if the transaction has been committed already
@@ -32,13 +42,16 @@ async def get_session_no_commit() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency to get a db session without committing or closing"""
     session = SessionCreator()
     await session.execute(text("PRAGMA foreign_keys=ON"))
+    await session.execute(text("PRAGMA journal_mode=WAL"))
     yield session
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency to get a db session"""
     session = SessionCreator()
-    await session.execute(text("PRAGMA foreign_keys=ON"))
+    if config.use_sqlite:
+        await session.execute(text("PRAGMA foreign_keys=ON"))
+        await session.execute(text("PRAGMA journal_mode=WAL"))
 
     try:
         yield session

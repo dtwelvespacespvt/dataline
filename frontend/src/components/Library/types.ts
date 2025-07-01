@@ -114,6 +114,21 @@ export interface IConnectionOptions {
     tables: {
       name: string;
       enabled: boolean;
+      columns?: {
+        name?: string;
+        type?: string;
+        possible_values?: string[];
+        primary_key?: boolean;
+        description?: string;
+        enabled?: boolean;
+        relationship?: {
+          schema_name?: string;
+          table?: string;
+          column?: string;
+          enabled?: boolean;
+        }[];
+      }[];
+      description?: string;
     }[];
   }[];
 }
@@ -141,4 +156,11 @@ export interface IUserInfo {
   langsmith_api_key?: string | null;
   sentry_enabled: boolean;
   analytics_enabled: boolean;
+}
+
+export interface PossibleValuesResult {
+  possibleValues: []
+}
+export interface RelationshipsResult {
+  relationships: []
 }

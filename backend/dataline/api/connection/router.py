@@ -13,7 +13,7 @@ from dataline.models.connection.schema import (
     ConnectSampleIn,
     FileConnectionType,
     GetConnectionOut,
-    SampleOut,
+    SampleOut, RelationshipOut,
 )
 from dataline.old_models import SuccessListResponse, SuccessResponse
 from dataline.repositories.base import AsyncSession, get_session
@@ -98,7 +98,7 @@ async def connect_db_from_file(
         return SuccessResponse(data=connection)
 
 
-@router.get("/connection/{connection_id}")
+@router.get("/api/connection/{connection_id}")
 async def get_connection(
     connection_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -155,6 +155,84 @@ async def update_connection(
         data=GetConnectionOut(
             connection=updated_connection,
         ),
+    )
+
+
+@router.patch("/connection/{connection_id}/generate/descriptions")
+async def generate_descriptions(
+        connection_id: UUID,
+        req: ConnectionUpdateIn,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessResponse[GetConnectionOut]:
+    background_tasks.add_task(posthog_capture, "description_updated")
+
+    updated_connection = await connection_service.generate_descriptions(session, connection_id, req)
+
+    # TODO: Simplify output structure here and on FE
+    return SuccessResponse(
+        data=GetConnectionOut(
+            connection=updated_connection,
+        ),
+    )
+
+
+@router.patch("/connection/{connection_id}/generate/relationships")
+async def generate_relationships(
+        connection_id: UUID,
+        req: ConnectionUpdateIn,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessResponse[GetConnectionOut]:
+    background_tasks.add_task(posthog_capture, "relationships_updated")
+
+    updated_connection = await connection_service.generate_relationships(session, connection_id, req)
+
+    # TODO: Simplify output structure here and on FE
+    return SuccessResponse(
+        data=GetConnectionOut(
+            connection=updated_connection,
+        ),
+    )
+
+
+@router.get("/connection/{connection_id}/generate/relationships/{schema}/{table}/{column}/{column_type}")
+async def generate_relationships_per_column(
+        connection_id: UUID,
+        schema: str,
+        table: str,
+        column: str,
+        column_type: str,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessListResponse[RelationshipOut]:
+    background_tasks.add_task(posthog_capture, "get_relationship_per_column")
+
+    result = await connection_service.generate_relationships_per_column(session, connection_id, schema, table, column, column_type)
+
+    return SuccessListResponse(
+        data=result
+    )
+
+@router.get("/connection/{connection_id}/getPossibleValues/{schema}/{table}/{column}")
+async def get_possible_values_per_column(
+        connection_id: UUID,
+        schema: str,
+        table: str,
+        column: str,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessListResponse[object]:
+    background_tasks.add_task(posthog_capture, "get_possible_values_per_column")
+
+    result = await connection_service.get_possible_values_per_column(session, connection_id, schema, table, column)
+
+    return SuccessListResponse(
+        data=result
     )
 
 

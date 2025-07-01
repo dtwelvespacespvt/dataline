@@ -4,7 +4,7 @@ from uuid import UUID
 
 from dataline.models.base import DBModel, UUIDMixin
 from dataline.models.conversation.model import ConversationModel
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import JSON, ForeignKey, String, Text, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -15,7 +15,9 @@ class MessageModel(DBModel, UUIDMixin, kw_only=True):  # type: ignore[misc]
     __tablename__ = "messages"
     content: Mapped[str] = mapped_column("content", Text, nullable=False)
     role: Mapped[str] = mapped_column("role", String, nullable=False)
-    created_at: Mapped[datetime | None] = mapped_column("created_at", String)
+    created_at: Mapped[datetime | None] = mapped_column(
+        "created_at", DateTime(timezone=True), server_default=func.now()
+    )
     conversation_id: Mapped[UUID] = mapped_column(ForeignKey(ConversationModel.id, ondelete="CASCADE"))
     options: Mapped[dict[str, Any] | None] = mapped_column("options", JSON, nullable=True)  # type: ignore[misc]
 
