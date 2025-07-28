@@ -1,16 +1,17 @@
+from collections import defaultdict
 from typing import Any, Generator, Protocol, Self, Sequence, cast
 
 import logging
 from langchain_community.utilities.sql_database import SQLDatabase
-from sqlalchemy import Engine, MetaData, Row, create_engine, inspect, text
+from sqlalchemy import Engine, MetaData, Row, create_engine, inspect
 from sqlalchemy.engine import CursorResult
-from sqlalchemy.exc import NoSuchTableError, ProgrammingError
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.engine import make_url
 from sqlalchemy import text
 
+from dataline.models.connection.model import ConnectionSchemaTableColumn
 from dataline.models.connection.schema import ConnectionOptions
-from pydantic import BaseModel
 import json
 
 logger = logging.getLogger(__name__)
@@ -334,3 +335,38 @@ class DatalineSQLDatabase(SQLDatabase):
         final_str = "\n\n".join(tables)
         logger.debug(f"get_table_info {final_str}")
         return final_str
+
+
+    def generate_unique_values_sql(self, table_to_columns:tuple[str,list[ConnectionSchemaTableColumn]], schema_name:str|None=None):
+        sql_parts = []
+        unique_value_dict = defaultdict(list)
+
+        if not table_to_columns[1]:
+            return unique_value_dict
+
+        table_name = table_to_columns[0]
+
+        for col in table_to_columns[1]:
+            col_name= col.name
+            subquery = (
+                f"SELECT '{table_name}' AS TableName, "
+                f"'{col_name}' AS ColumnName, "
+                f"{col_name} AS UniqueValue "
+                f"FROM {schema_name}.{table_name} "
+                f"GROUP BY {col_name}"
+            )
+            sql_parts.append(subquery)
+
+        query = text(" UNION ALL ".join(sql_parts) + ";")
+        columns = []
+        with self._engine.connect() as conn:
+            result = conn.execute(query, {"schema": schema_name, "table": table_name}).fetchall()
+            columns = [dict(row._mapping) for row in result]
+
+        for column in columns:
+            key = column['uniquevalue']
+            value_tuple = (column['columnname'], column['tablename'])
+            unique_value_dict[key].append(value_tuple)
+
+
+        return unique_value_dict

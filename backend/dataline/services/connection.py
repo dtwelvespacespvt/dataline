@@ -320,10 +320,12 @@ class ConnectionService:
                     type=col["type"],
                     primary_key=col["primary_key"],
                     enabled=True,
-                    description=column_descriptions.get(col["name"], "")
+                    description=column_descriptions.get(col["name"], ""),
+                    reverse_look_up=False
                 )
                 for col in columns
-            ] if len(columns) > 0 else []
+            ] if len(columns) > 0 else [],
+            reverse_look_up= False
         )
 
     async def _build_connection_schema_table_from_existing(self, session: AsyncSession, schema: str, table: str, db,
@@ -348,10 +350,12 @@ class ConnectionService:
                         type=col["type"],
                         primary_key=col["primary_key"],
                         enabled=True,
-                        description=column_descriptions.get(col["name"], "")
+                        description=column_descriptions.get(col["name"], ""),
+                        reverse_look_up=False
                     )
                     for col in columns
-                ] if len(columns) > 0 else []
+                ] if len(columns) > 0 else [],
+                reverse_look_up= connection_schema_table.reverse_look_up if connection_schema_table else False
             )
         else:
             columns = connection_schema_table.columns
@@ -375,10 +379,12 @@ class ConnectionService:
                         enabled=column_enabled.get(col.name, False),
                         description=column_descriptions.get(col.name, ""),
                         relationship=col.relationship,
-                        possible_values=col.possible_values
+                        possible_values=col.possible_values,
+                        reverse_look_up=col.reverse_look_up
                     )
                     for col in columns
-                ] if len(columns) > 0 else []
+                ] if len(columns) > 0 else [],
+                reverse_look_up = connection_schema_table.reverse_look_up if connection_schema_table else False
             )
 
     async def enrich_table_with_llm(self, session: AsyncSession, table: str, columns: list[dict]) -> tuple[str, dict]:
@@ -424,11 +430,18 @@ class ConnectionService:
                 ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
             )
             update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options.options, db)
         elif data.options:
             # only modify options if dsn hasn't changed
             update.options = data.options
+            # generate Unique Value Dict
+            connection = await self.connection_repo.get_by_uuid(session, connection_uuid)
+            db = await self.get_db_from_dsn(connection.dsn)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options, db)
         if data.name:
             update.name = data.name
+        if data.glossary:
+            update.glossary = data.glossary
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -454,6 +467,7 @@ class ConnectionService:
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
         update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
+        update.unique_value_dict = await self.generate_unique_value_dict(update.options, db)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -482,7 +496,7 @@ class ConnectionService:
         return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existing_relationship=[], ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.05)
 
     async def get_possible_values_per_column(self, session: AsyncSession, connection_uuid: UUID, schema: str, table: str, column: str
-                                                ) -> list:
+                                             ) -> list:
         current_connection = await self.get_connection(session, connection_uuid)
         db = await self.get_db_from_dsn(current_connection.dsn)
         return await get_distinct_values(schema, table, column, db=db)
@@ -521,12 +535,12 @@ class ConnectionService:
         return ConnectionOut.model_validate(updated_connection)
 
     async def create_connection(
-        self,
-        session: AsyncSession,
-        dsn: str,
-        name: str,
-        connection_type: str | None = None,
-        is_sample: bool = False,
+            self,
+            session: AsyncSession,
+            dsn: str,
+            name: str,
+            connection_type: str | None = None,
+            is_sample: bool = False,
     ) -> ConnectionOut:
         # Check if connection can be established before saving it
         db = await self.get_db_from_dsn(dsn)
@@ -558,6 +572,7 @@ class ConnectionService:
                 type=connection_type,
                 is_sample=is_sample,
                 options=ConnectionOptions(schemas=connection_schemas),
+                reverse_look_up=False
             ),
         )
         return ConnectionOut.model_validate(connection)
@@ -725,3 +740,27 @@ class ConnectionService:
         )
 
         return ConnectionOut.model_validate(updated_connection)
+
+    async def get_all_dicts(self, session:AsyncSession, connection_id: UUID) -> dict[str,list]:
+
+        connection = await self.connection_repo.get_by_uuid(session, connection_id)
+
+        the_dict = defaultdict(list)
+        for gloss in connection.glossary:
+            the_dict[gloss].append("glossary")
+
+        for unique_key in connection.unique_value_dict:
+            the_dict[unique_key].append("uniqueKey")
+
+        return the_dict
+
+    @classmethod
+    async def generate_unique_value_dict(cls, options: ConnectionOptions, db: SQLDatabase):
+        unique_values= {}
+        for schema_obj in options.schemas:
+            for table in schema_obj.tables:
+                if table.reverse_look_up:
+                    unique_values.update(db.generate_unique_values_sql((table.name, list(filter(lambda column: column.reverse_look_up == True, table.columns))), schema_obj.name))
+
+        return unique_values
+

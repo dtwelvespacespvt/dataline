@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import AsyncGenerator, Sequence, Type
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -109,9 +110,9 @@ class QueryGraphService:
         return graph
 
     def get_prompt_messages(
-        self, query: str, history: Sequence[BaseMessage], top_k: int = 10, suffix: str = SQL_FUNCTIONS_SUFFIX
+        self, query: str, history: Sequence[BaseMessage], top_k: int = 200, suffix: str = SQL_FUNCTIONS_SUFFIX
     ):
-        prefix = SQL_PREFIX
+        prefix = SQL_PREFIX + "Current Time" + str(time.localtime())
         prefix = prefix.format(dialect=self.toolkit.dialect, top_k=top_k)
 
         if not history:

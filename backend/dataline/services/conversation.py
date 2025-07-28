@@ -1,5 +1,6 @@
 import logging
-from typing import AsyncGenerator, cast
+import re
+from typing import AsyncGenerator, cast, Dict
 from uuid import UUID
 
 from fastapi import Depends
@@ -135,6 +136,32 @@ class ConversationService:
         )
         return ConversationOut.model_validate(conversation)
 
+    @classmethod
+    def _add_glossary_util(cls, glossary:Dict[str,str], query:str)->str:
+        pattern = f"<(.+?)>"
+        glossary_words =  re.findall(pattern, query)
+        if not glossary_words:
+            return query
+        glossary_words = set(glossary_words)
+        query += "\n\n#####Glossary#######\n"
+        for glossary_word in glossary_words:
+            query += glossary_word +": "+glossary.get(glossary_word)+"\n"
+        return query
+
+    @classmethod
+    def _add_reverse_look_up_util(cls, unique_value_dict: Dict[str,list[tuple[str,str]]], query:str):
+
+        pattern = r"\[(.+?)\]"
+        glossary_words = re.findall(pattern, query)
+        if not glossary_words:
+            return query
+        glossary_words = set(glossary_words)
+        query += "\n\n#####Table Look Up#######\n"
+        for glossary_word in glossary_words:
+            for city, table in unique_value_dict.get(glossary_word , []):
+                query += " {}: Column:  {} , Table:  {} \n".format(glossary_word, city, table)
+        return query
+
     async def query(
         self,
         session: AsyncSession,
@@ -156,9 +183,11 @@ class ConversationService:
         results: list[ResultType] = []
         # Perform query and execute graph
         langsmith_api_key = user_with_model_details.langsmith_api_key
-
-        async for chunk in query_graph.query(
-            query=query,
+        cleaned_query = self._add_glossary_util(connection.glossary, query)
+        if connection.unique_value_dict is not None:
+            cleaned_query = self._add_reverse_look_up_util(connection.unique_value_dict, cleaned_query)
+        async for chunk in (query_graph.query(
+            query=cleaned_query,
             options=QueryOptions(
                 secure_data=secure_data,
                 openai_api_key=user_with_model_details.openai_api_key.get_secret_value(),  # type: ignore
@@ -167,7 +196,7 @@ class ConversationService:
                 llm_model=user_with_model_details.preferred_openai_model,
             ),
             history=history,
-        ):
+        )):
             (chunk_messages, chunk_results) = chunk
             if chunk_messages is not None:
                 messages.extend(chunk_messages)

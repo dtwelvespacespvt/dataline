@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Type
+from typing import Type, Dict
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
@@ -30,6 +30,8 @@ class ConnectionCreate(BaseModel):
     type: str
     is_sample: bool = False
     options: ConnectionOptions | None = None
+    glossary: Dict[str,str] | None = None
+    unique_value_dict: dict[str, list[tuple[str,str]]] | None = None
 
 
 class ConnectionUpdate(BaseModel):
@@ -42,6 +44,8 @@ class ConnectionUpdate(BaseModel):
     type: str | None = None
     is_sample: bool | None = None
     options: ConnectionOptions | None = None
+    glossary: Dict[str, str] | None = None
+    unique_value_dict: dict[str, list[tuple[str,str]]] | None = None
 
 
 class ConnectionRepository(BaseRepository[ConnectionModel, ConnectionCreate, ConnectionUpdate]):

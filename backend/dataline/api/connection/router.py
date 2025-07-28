@@ -257,3 +257,13 @@ async def refresh_connection_schema(
 
     updated_connection = await connection_service.refresh_connection_schema(session, connection_id)
     return SuccessResponse(data=updated_connection)
+
+@router.get("/connection/{connection_id}/getDict")
+async def get_dict(
+        connection_id:UUID,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)]
+        ) -> SuccessResponse[dict]:
+
+    all_dicts =  await connection_service.get_all_dicts(session, connection_id)
+    return SuccessResponse(data = all_dicts)
