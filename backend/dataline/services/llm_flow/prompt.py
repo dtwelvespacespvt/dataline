@@ -64,3 +64,23 @@ SQL_FUNCTIONS_SUFFIX = (
     "I should look at the tables in the database to see what I can query. Then I should think "
     "about what I need to answer the question and query the schema of the most relevant tables if necessary."
 )
+
+PROMPT_VALIDATION_QUERY = (
+"""
+You are a highly intelligent validation AI. Your sole purpose is to determine if a "User Query" successfully meets the criteria defined in a "Validation Prompt".
+
+You will be given two pieces of information:
+
+Validation Prompt: This is the rule that the user's input must follow.
+
+User Query: This is the input from the user that you need to check.
+
+Your task is to analyze the "User Query" against the "Validation Prompt" 
+
+
+IF valid return a single word "YES" else 
+
+and point out whats missing 
+ 
+"""
+)

@@ -33,6 +33,10 @@ class ConnectionSchemaTable(TypedDict):
     description: str
     reverse_look_up: NotRequired[bool]
 
+class ConnectionConfig(TypedDict):
+    validation_query: NotRequired[str]
+    connection_prompt: NotRequired[str]
+    default_table_limit: NotRequired[int]
 
 class ConnectionSchema(TypedDict):
     name: str
@@ -54,7 +58,8 @@ class ConnectionModel(DBModel, UUIDMixin, kw_only=True):
     is_sample: Mapped[bool] = mapped_column("is_sample", Boolean, nullable=False, default=False, server_default="false")
     glossary: Mapped[Dict[str, str] | None] = mapped_column("glossary", JSON, nullable=True)
     options: Mapped[ConnectionOptions | None] = mapped_column("options", JSON, nullable=True)
-    unique_value_dict: Mapped[dict[str, List[Tuple[str,str]]] | None ] = mapped_column("unique_value_dict", JSON, nullable=True)
+    unique_value_dict: Mapped[Dict[str, List[Tuple[str,str]]] | None ] = mapped_column("unique_value_dict", JSON, nullable=True)
+    config: Mapped[ConnectionSchema | None] = mapped_column('config', JSON, nullable=True)
 
     # Relationships
     conversations: Mapped[list["ConversationModel"]] = relationship("ConversationModel", back_populates="connection")

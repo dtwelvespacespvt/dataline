@@ -43,6 +43,11 @@ class ConnectionSchema(BaseModel):
 class ConnectionOptions(BaseModel):
     schemas: list[ConnectionSchema]
 
+class ConnectionConfigSchema(BaseModel):
+    validation_query: Optional[str]
+    connection_prompt: Optional[str]
+    default_table_limit: Optional[int]
+
 
 class Connection(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -57,6 +62,7 @@ class Connection(BaseModel):
     options: Optional[ConnectionOptions] = None
     glossary: Optional[Dict[str,Any]] = []
     unique_value_dict: Optional[dict[str,list[tuple[str,str]]]] = []
+    config: Optional[ConnectionConfigSchema] = None
 
 
 class ConnectionOut(Connection):

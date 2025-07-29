@@ -11,7 +11,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy import text
 
 from dataline.models.connection.model import ConnectionSchemaTableColumn
-from dataline.models.connection.schema import ConnectionOptions
+from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
 import json
 
 logger = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class ConnectionProtocol(Protocol):
     dsn: str
     options: ConnectionOptions | None
+    config: ConnectionConfigSchema | None
 
 
 class DatalineSQLDatabase(SQLDatabase):

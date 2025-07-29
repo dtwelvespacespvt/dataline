@@ -249,6 +249,10 @@ class ConnectionService:
         connections = await self.connection_repo.list_all(session)
         return [ConnectionOut.model_validate(connection) for connection in connections]
 
+    async def get_connection_by_uuid(self, session:AsyncSession, connection_uuid: UUID):
+        connection = await self.connection_repo.get_by_uuid(session, connection_uuid)
+        return ConnectionOut.model_validate(connection)
+
     async def delete_connection(self, session: AsyncSession, connection_id: UUID) -> None:
         await self.connection_repo.delete_by_uuid(session, connection_id)
 

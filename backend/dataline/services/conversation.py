@@ -37,6 +37,7 @@ from dataline.repositories.conversation import (
 )
 from dataline.repositories.message import MessageRepository
 from dataline.repositories.result import ResultRepository
+from dataline.repositories.user import UserRepository
 from dataline.services.connection import ConnectionService
 from dataline.services.llm_flow.graph import QueryGraphService
 from dataline.services.llm_flow.llm_calls.conversation_title_generator import (
@@ -67,12 +68,14 @@ class ConversationService:
         result_repo: ResultRepository = Depends(ResultRepository),
         connection_service: ConnectionService = Depends(ConnectionService),
         settings_service: SettingsService = Depends(SettingsService),
+        user_repo: UserRepository = Depends(UserRepository)
     ) -> None:
         self.conversation_repo = conversation_repo
         self.message_repo = message_repo
         self.result_repo = result_repo
         self.connection_service = connection_service
         self.settings_service = settings_service
+        self.user_repo = user_repo
 
     async def generate_title(self, session: AsyncSession, conversation_id: UUID) -> str:
         conversation = await self.get_conversation_with_messages(session, conversation_id)
@@ -104,8 +107,9 @@ class ConversationService:
         connection_id: UUID,
         name: str,
     ) -> ConversationOut:
+        user = await self.user_repo.get_one_or_none(session)
         conversation = await self.conversation_repo.create(
-            session, ConversationCreate(connection_id=connection_id, name=name)
+            session, ConversationCreate(connection_id=connection_id, name=name, user_id=user.id)
         )
         return ConversationOut.model_validate(conversation)
 
@@ -152,14 +156,14 @@ class ConversationService:
     def _add_reverse_look_up_util(cls, unique_value_dict: Dict[str,list[tuple[str,str]]], query:str):
 
         pattern = r"\[(.+?)\]"
-        glossary_words = re.findall(pattern, query)
-        if not glossary_words:
+        keywords = re.findall(pattern, query)
+        if not keywords:
             return query
-        glossary_words = set(glossary_words)
+        keywords = set(keywords)
         query += "\n\n#####Table Look Up#######\n"
-        for glossary_word in glossary_words:
-            for city, table in unique_value_dict.get(glossary_word , []):
-                query += " {}: Column:  {} , Table:  {} \n".format(glossary_word, city, table)
+        for keyword in keywords:
+            for city, table in unique_value_dict.get(keyword , []):
+                query += "{}: Column:  {} , Table:  {} \n".format(keyword, city, table)
         return query
 
     async def query(
@@ -177,7 +181,7 @@ class ConversationService:
 
         # Create query graph
         query_graph = QueryGraphService(connection=connection)
-        history = await self.get_conversation_history(session, conversation_id)
+        history = await self.get_conversation_history(session, conversation.connection_id)
 
         messages: list[BaseMessage] = []
         results: list[ResultType] = []
@@ -282,11 +286,13 @@ class ConversationService:
         )
         yield stream_event_str(event=QueryStreamingEventType.STORED_MESSAGES.value, data=query_out.model_dump_json())
 
-    async def get_conversation_history(self, session: AsyncSession, conversation_id: UUID) -> list[BaseMessage]:
+    async def get_conversation_history(self, session: AsyncSession, connection_id: UUID) -> list[BaseMessage]:
         """
         Get the last 10 messages of a conversation (AI, Human, and System)
         """
-        messages = await self.message_repo.get_by_conversation_with_sql_results(session, conversation_id, n=10)
+        user = await self.user_repo.get_one_or_none(session)
+        connection = await  self.connection_service.get_connection_by_uuid(session, connection_id)
+        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, user.id,  n=connection.config.default_table_limit if connection.config and connection.config.default_table_limit else 10)
         base_messages = []
         for message in reversed(messages):  # Reverse to get the oldest messages first (chat format)
             if message.role == BaseMessageType.HUMAN.value:

@@ -9,6 +9,8 @@ from openai import AuthenticationError, RateLimitError
 
 from dataline.errors import UserFacingError
 from dataline.models.llm_flow.schema import QueryResultSchema
+from dataline.models.message.schema import BaseMessageType
+from dataline.services.llm_flow.prompt import PROMPT_VALIDATION_QUERY
 from dataline.services.llm_flow.toolkit import (
     ChartGeneratorTool,
     QueryGraphState,
@@ -167,3 +169,55 @@ class ShouldCallToolCondition(Condition):
         # Otherwise if there is, we continue
         else:
             return CallToolNode.__name__
+
+class ShouldCallModelCondition(Condition):
+    @classmethod
+    def run(cls, state: QueryGraphState) -> NodeName:
+        """
+
+        """
+        messages = state.messages
+        last_message = messages[-1]
+        # If there is no function call, then we go to end
+        if "YES" not in last_message.content:
+            return END
+        # Otherwise if there is, we continue
+        else:
+            return CallModelNode.__name__
+
+class QueryValidationNode(Node):
+    @classmethod
+    def run(cls, state: QueryGraphState) -> QueryGraphStateUpdate:
+
+        messages = state.messages
+        last_message = ""
+        for message in reversed(messages):
+            if message.type == BaseMessageType.HUMAN.value:
+                last_message = message
+                break
+
+        model = ChatOpenAI(
+            model=state.options.llm_model,
+            base_url=state.options.openai_base_url,
+            api_key=state.options.openai_api_key,
+            temperature=0,
+            streaming=True,
+        )
+        if state.connection.config:
+            validation_prompt = PROMPT_VALIDATION_QUERY + "\n " + "Validation Prompt: " + state.connection.config.validation_query+ "User Message: " + last_message.content
+        else:
+            return state_update(messages)
+        try:
+            response = model.invoke(validation_prompt)
+        except RateLimitError as e:
+            body = cast(dict, e.body)
+            raise UserFacingError(body.get("message", "OpenAI API rate limit exceeded"))
+        except AuthenticationError as e:
+            body = cast(dict, e.body)
+            raise UserFacingError(body.get("message", "OpenAI API key rejected"))
+        except Exception as e:
+            raise UserFacingError(str(e))
+
+        return state_update(messages=[response])
+
+

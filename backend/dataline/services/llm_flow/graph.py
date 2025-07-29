@@ -13,10 +13,9 @@ from dataline.models.llm_flow.schema import QueryOptions, ResultType
 from dataline.services.llm_flow.nodes import (
     CallModelNode,
     CallToolNode,
-    ReturnNode,
     Condition,
     Node,
-    ShouldCallToolCondition,
+    ShouldCallToolCondition, QueryValidationNode, ShouldCallModelCondition,
 )
 from dataline.services.llm_flow.prompt import SQL_FUNCTIONS_SUFFIX, SQL_PREFIX
 from dataline.services.llm_flow.toolkit import (
@@ -50,7 +49,7 @@ class QueryGraphService:
         except Exception as e:
             forward_connection_errors(e)
             raise e
-
+        self.connection = connection
         self.db._sample_rows_in_table_info = 0  # Preventative security
         self.toolkit = SQLDatabaseToolkit(db=self.db)
         all_tools = self.toolkit.get_tools() + [ChartGeneratorTool()]
@@ -81,6 +80,7 @@ class QueryGraphService:
             "options": options,
             "sql_toolkit": self.toolkit,
             "tool_executor": self.tool_executor,
+            "connection": self.connection
         }
 
         config: RunnableConfig | None = {"callbacks": [self.tracer], "recursion_limit": 100} if self.tracer is not None else None
@@ -99,11 +99,13 @@ class QueryGraphService:
         # Register nodes
         add_node(graph, CallModelNode)
         add_node(graph, CallToolNode)
+        add_node(graph, QueryValidationNode)
 
         # Entry point
-        graph.set_entry_point(CallModelNode.__name__)
+        graph.set_entry_point(QueryValidationNode.__name__)
 
         # Decision-making logic
+        add_conditional_edge(graph, QueryValidationNode, ShouldCallModelCondition)
         add_conditional_edge(graph, CallModelNode, ShouldCallToolCondition)
         add_edge(graph, CallToolNode, CallModelNode)  # Loop back after tool use
 
@@ -112,7 +114,13 @@ class QueryGraphService:
     def get_prompt_messages(
         self, query: str, history: Sequence[BaseMessage], top_k: int = 200, suffix: str = SQL_FUNCTIONS_SUFFIX
     ):
-        prefix = SQL_PREFIX + "Current Time" + str(time.localtime())
+        local_time = time.localtime()
+        formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
+        prefix = SQL_PREFIX + "\nCurrent Time" + str(formatted_time)
+
+        if self.connection and self.connection.config and self.connection.config.connection_prompt:
+            prefix = prefix + "\n" + self.connection.config.connection_prompt
+
         prefix = prefix.format(dialect=self.toolkit.dialect, top_k=top_k)
 
         if not history:

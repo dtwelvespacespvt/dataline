@@ -19,7 +19,11 @@ class ConversationModel(DBModel, UUIDMixin, kw_only=True):
         "created_at", DateTime(timezone=True), server_default=func.now()
     )
 
+    user_id: Mapped[UUID] = mapped_column(ForeignKey('user.id'))
+
     # Relationships
     messages: Mapped[list["MessageModel"]] = relationship("MessageModel", back_populates="conversation",
                                                           order_by="asc(MessageModel.created_at)")
     connection: Mapped["ConnectionModel"] = relationship("ConnectionModel", back_populates="conversations")
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="conversations")

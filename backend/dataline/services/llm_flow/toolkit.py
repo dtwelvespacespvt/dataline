@@ -20,6 +20,7 @@ from langchain_core.tools import BaseTool, BaseToolkit
 from langgraph.prebuilt import ToolExecutor
 from pydantic import BaseModel, Field, SkipValidation
 
+from dataline.models.connection.schema import Connection
 from dataline.models.llm_flow.schema import (
     ChartGenerationResult,
     QueryOptions,
@@ -142,6 +143,7 @@ class ToolNames:
     LIST_SQL_TABLES = "list_sql_tables"
     QUERY_SQL_CORRECTOR = "sql_db_query_corrector"
     GENERATE_CHART = "generate_chart"
+    VALIDATE_QUERY  = "validate_query"
 
 
 class BaseSQLDatabaseTool(BaseTool):
@@ -210,7 +212,6 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                 f"""ERROR: Tables {wrong_tables} that you selected do not exist in the database.
             Available tables are the following, please select from them ONLY: "{'", "'.join(available_names)}"."""
             )
-
         return valid_tables
 
     def _run(
@@ -225,7 +226,18 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         valid_tables = self._validate_sanitize_table_names(table_names, available_names)
 
         self.table_names = list(valid_tables)
-        return self.db.get_table_info(self.table_names)
+        table_metadata= ""
+        custom_table_data = getattr(self.db, "_custom_table_info", {})
+
+        for table_name in table_names.split(','):
+            table_info = custom_table_data.get(table_name, {})
+            table_metadata += f'table: {table_name} , \n'
+            for col in table_info.get("columns", []):
+                if "enabled" in col and col["enabled"] and "name" in col:
+                    for relation in col.get("relationship"):
+                        table_metadata+= f'{table_name} {col.get("name")} -> {relation.get("schema_name")}.{relation.get("table")} {relation.get("column")}'
+        return self.db.get_table_info(self.table_names) + table_metadata
+
 
     def get_response(  # type: ignore[misc]
         self,
@@ -404,7 +416,7 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting metadata about available tables."""
 
     name: str = ToolNames.LIST_SQL_TABLES
-    description: str = "Returns a list of table metadata including name, description, and columns info - name, type, possible_values, description and relationship with other other columns in other tables, . Input should be an empty string."
+    description: str = "Returns a list of table metadata including schema name, table name, table description, and table columns info - column name, column type, column possible_values, column description and column relationships with other other columns in other tables, . Input should be an empty string."
     args_schema: Type[BaseModel] = _ListSQLTablesToolInput
 
     def _run(  # type: ignore
@@ -495,6 +507,7 @@ class QueryGraphState(BaseModel):
     options: QueryOptions
     sql_toolkit: SQLDatabaseToolkit
     tool_executor: ToolExecutor
+    connection: Connection
 
     class Config:
         arbitrary_types_allowed = True
