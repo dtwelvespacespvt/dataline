@@ -7,6 +7,7 @@ from fastapi import Depends
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from openai._exceptions import APIError
 
+from dataline.config import config
 from dataline.errors import UserFacingError
 from dataline.models.conversation.schema import (
     ConversationOut,
@@ -292,19 +293,19 @@ class ConversationService:
         """
         user = await self.user_repo.get_one_or_none(session)
         connection = await  self.connection_service.get_connection_by_uuid(session, connection_id)
-        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, user.id,  n=connection.config.default_table_limit if connection.config and connection.config.default_table_limit else 10)
+        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, user.id,  n=config.default_conversation_history_limit)
         base_messages = []
         for message in reversed(messages):  # Reverse to get the oldest messages first (chat format)
             if message.role == BaseMessageType.HUMAN.value:
                 base_messages.append(HumanMessage(content=message.content))
             elif message.role == BaseMessageType.AI.value:
                 base_messages.append(AIMessage(content=message.content))
-                if message.results:
-                    sqls = [
-                        SQLQueryStringResultContent.model_validate_json(result.content).sql
-                        for result in message.results
-                    ]
-                    base_messages.append(AIMessage(content=f"Generated SQL: {str(sqls)}"))
+                # if message.results:
+                #     sqls = [
+                #         SQLQueryStringResultContent.model_validate_json(result.content).sql
+                #         for result in message.results
+                #     ]
+                #     base_messages.append(AIMessage(content=f"Generated SQL: {str(sqls)}"))
             elif message.role == BaseMessageType.SYSTEM.value:
                 base_messages.append(SystemMessage(content=message.content))
             else:

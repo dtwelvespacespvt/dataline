@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from dataline.models.base import DBModel, UUIDMixin
+from dataline.models.connection.schema import ConnectionConfigSchema
 
 if TYPE_CHECKING:
     from dataline.models.conversation.model import ConversationModel
@@ -23,7 +24,6 @@ class ConnectionSchemaTableColumn(TypedDict):
     description: str
     relationship: list[ConnectionSchemaTableColumnRelationship]
     enabled: bool
-    reverse_loop_up: NotRequired[bool]
 
 
 class ConnectionSchemaTable(TypedDict):
@@ -31,7 +31,6 @@ class ConnectionSchemaTable(TypedDict):
     enabled: bool
     columns: list[ConnectionSchemaTableColumn]
     description: str
-    reverse_look_up: NotRequired[bool]
 
 class ConnectionConfig(TypedDict):
     validation_query: NotRequired[str]
@@ -59,7 +58,7 @@ class ConnectionModel(DBModel, UUIDMixin, kw_only=True):
     glossary: Mapped[Dict[str, str] | None] = mapped_column("glossary", JSON, nullable=True)
     options: Mapped[ConnectionOptions | None] = mapped_column("options", JSON, nullable=True)
     unique_value_dict: Mapped[Dict[str, List[Tuple[str,str]]] | None ] = mapped_column("unique_value_dict", JSON, nullable=True)
-    config: Mapped[ConnectionSchema | None] = mapped_column('config', JSON, nullable=True)
+    config: Mapped[ConnectionConfigSchema | None] = mapped_column('config', JSON, nullable=True)
 
     # Relationships
     conversations: Mapped[list["ConversationModel"]] = relationship("ConversationModel", back_populates="connection")

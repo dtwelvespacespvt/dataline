@@ -9,6 +9,7 @@ from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolExecutor
 from langsmith import Client
 
+from dataline.config import config as dataline_config
 from dataline.models.llm_flow.schema import QueryOptions, ResultType
 from dataline.services.llm_flow.nodes import (
     CallModelNode,
@@ -72,15 +73,20 @@ class QueryGraphService:
         if not options.secure_data:
             self.db._sample_rows_in_table_info = 3
 
+        top_k = dataline_config.default_sql_row_limit
+
+        if self.connection.config and self.connection.config.default_table_limit:
+            top_k = self.connection.config.default_table_limit
+
         initial_state = {
             "messages": [
-                *self.get_prompt_messages(query, history),
+                *self.get_prompt_messages(query, history, top_k= top_k),
             ],
             "results": [],
             "options": options,
             "sql_toolkit": self.toolkit,
             "tool_executor": self.tool_executor,
-            "connection": self.connection
+            "validation_query": self.connection.config.validation_query if self.connection.config else None
         }
 
         config: RunnableConfig | None = {"callbacks": [self.tracer], "recursion_limit": 100} if self.tracer is not None else None
@@ -112,11 +118,11 @@ class QueryGraphService:
         return graph
 
     def get_prompt_messages(
-        self, query: str, history: Sequence[BaseMessage], top_k: int = 200, suffix: str = SQL_FUNCTIONS_SUFFIX
+        self, query: str, history: Sequence[BaseMessage], top_k: int, suffix: str = SQL_FUNCTIONS_SUFFIX
     ):
         local_time = time.localtime()
         formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
-        prefix = SQL_PREFIX + "\nCurrent Time" + str(formatted_time)
+        prefix = SQL_PREFIX + "\n Current Time {} \n".format(str(formatted_time))
 
         if self.connection and self.connection.config and self.connection.config.connection_prompt:
             prefix = prefix + "\n" + self.connection.config.connection_prompt

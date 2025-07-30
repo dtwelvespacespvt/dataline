@@ -23,7 +23,6 @@ class ConnectionSchemaTableColumn(BaseModel):
     description: Optional[str] = None
     relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
     enabled: Optional[bool] = False
-    reverse_look_up: Optional[bool] = False
 
 
 class ConnectionSchemaTable(BaseModel):
@@ -31,7 +30,6 @@ class ConnectionSchemaTable(BaseModel):
     enabled: bool
     columns: Optional[list[ConnectionSchemaTableColumn]] = []
     description: Optional[str] = None
-    reverse_look_up: Optional[bool] = False
 
 
 class ConnectionSchema(BaseModel):
@@ -44,9 +42,9 @@ class ConnectionOptions(BaseModel):
     schemas: list[ConnectionSchema]
 
 class ConnectionConfigSchema(BaseModel):
-    validation_query: Optional[str]
-    connection_prompt: Optional[str]
-    default_table_limit: Optional[int]
+    validation_query: Optional[str] = None
+    connection_prompt: Optional[str] = None
+    default_table_limit: Optional[int] = None
 
 
 class Connection(BaseModel):
@@ -197,6 +195,8 @@ class ConnectionUpdateIn(BaseModel):
     dsn: Optional[str] = None
     options: Optional[ConnectionOptions] = None
     glossary: Dict[str,str] = None
+    config: ConnectionConfigSchema = None
+    unique_value_dict: Dict[str, list[tuple[str,str]]] = None
 
     @field_validator("dsn")
     def validate_dsn_format(cls, value: str) -> str:

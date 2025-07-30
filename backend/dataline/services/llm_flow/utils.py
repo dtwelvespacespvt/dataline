@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Generator, Protocol, Self, Sequence, cast
+from typing import Any, Generator, Protocol, Self, Sequence, cast, Optional
 
 import logging
 from langchain_community.utilities.sql_database import SQLDatabase
@@ -10,7 +10,7 @@ from sqlalchemy.schema import CreateTable
 from sqlalchemy.engine import make_url
 from sqlalchemy import text
 
-from dataline.models.connection.model import ConnectionSchemaTableColumn
+from dataline.models.connection.schema import ConnectionSchemaTableColumn
 from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
 import json
 
@@ -21,6 +21,8 @@ class ConnectionProtocol(Protocol):
     dsn: str
     options: ConnectionOptions | None
     config: ConnectionConfigSchema | None
+    glossary: Optional[dict[str, Any]] = []
+    unique_value_dict: Optional[dict[str, list[tuple[str, str]]]] = []
 
 
 class DatalineSQLDatabase(SQLDatabase):
@@ -337,37 +339,19 @@ class DatalineSQLDatabase(SQLDatabase):
         logger.debug(f"get_table_info {final_str}")
         return final_str
 
-
-    def generate_unique_values_sql(self, table_to_columns:tuple[str,list[ConnectionSchemaTableColumn]], schema_name:str|None=None):
-        sql_parts = []
+    @classmethod
+    def generate_unique_values_sql(cls, table_to_columns:tuple[str,list[ConnectionSchemaTableColumn]], schema_name:str|None=None):
         unique_value_dict = defaultdict(list)
 
         if not table_to_columns[1]:
             return unique_value_dict
 
         table_name = table_to_columns[0]
+        table_columns = table_to_columns[1]
 
-        for col in table_to_columns[1]:
-            col_name= col.name
-            subquery = (
-                f"SELECT '{table_name}' AS TableName, "
-                f"'{col_name}' AS ColumnName, "
-                f"{col_name} AS UniqueValue "
-                f"FROM {schema_name}.{table_name} "
-                f"GROUP BY {col_name}"
-            )
-            sql_parts.append(subquery)
-
-        query = text(" UNION ALL ".join(sql_parts) + ";")
-        columns = []
-        with self._engine.connect() as conn:
-            result = conn.execute(query, {"schema": schema_name, "table": table_name}).fetchall()
-            columns = [dict(row._mapping) for row in result]
-
-        for column in columns:
-            key = column['uniquevalue']
-            value_tuple = (column['columnname'], column['tablename'])
-            unique_value_dict[key].append(value_tuple)
-
+        for column in table_columns:
+            for key in column.possible_values:
+                value_tuple = (column.name, "{}.{}".format(schema_name, table_name))
+                unique_value_dict[key].append(value_tuple)
 
         return unique_value_dict

@@ -324,12 +324,10 @@ class ConnectionService:
                     type=col["type"],
                     primary_key=col["primary_key"],
                     enabled=True,
-                    description=column_descriptions.get(col["name"], ""),
-                    reverse_look_up=False
+                    description=column_descriptions.get(col["name"], "")
                 )
                 for col in columns
-            ] if len(columns) > 0 else [],
-            reverse_look_up= False
+            ] if len(columns) > 0 else []
         )
 
     async def _build_connection_schema_table_from_existing(self, session: AsyncSession, schema: str, table: str, db,
@@ -354,12 +352,10 @@ class ConnectionService:
                         type=col["type"],
                         primary_key=col["primary_key"],
                         enabled=True,
-                        description=column_descriptions.get(col["name"], ""),
-                        reverse_look_up=False
+                        description=column_descriptions.get(col["name"], "")
                     )
                     for col in columns
-                ] if len(columns) > 0 else [],
-                reverse_look_up= connection_schema_table.reverse_look_up if connection_schema_table else False
+                ] if len(columns) > 0 else []
             )
         else:
             columns = connection_schema_table.columns
@@ -383,12 +379,10 @@ class ConnectionService:
                         enabled=column_enabled.get(col.name, False),
                         description=column_descriptions.get(col.name, ""),
                         relationship=col.relationship,
-                        possible_values=col.possible_values,
-                        reverse_look_up=col.reverse_look_up
+                        possible_values=col.possible_values
                     )
                     for col in columns
-                ] if len(columns) > 0 else [],
-                reverse_look_up = connection_schema_table.reverse_look_up if connection_schema_table else False
+                ] if len(columns) > 0 else []
             )
 
     async def enrich_table_with_llm(self, session: AsyncSession, table: str, columns: list[dict]) -> tuple[str, dict]:
@@ -576,7 +570,6 @@ class ConnectionService:
                 type=connection_type,
                 is_sample=is_sample,
                 options=ConnectionOptions(schemas=connection_schemas),
-                reverse_look_up=False
             ),
         )
         return ConnectionOut.model_validate(connection)
@@ -763,8 +756,7 @@ class ConnectionService:
         unique_values= {}
         for schema_obj in options.schemas:
             for table in schema_obj.tables:
-                if table.reverse_look_up:
-                    unique_values.update(db.generate_unique_values_sql((table.name, list(filter(lambda column: column.reverse_look_up == True, table.columns))), schema_obj.name))
+                unique_values.update(db.generate_unique_values_sql((table.name, list(filter(lambda column: column.possible_values, table.columns))), schema_obj.name))
 
         return unique_values
 

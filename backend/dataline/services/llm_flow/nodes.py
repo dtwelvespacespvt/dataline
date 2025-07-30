@@ -6,6 +6,7 @@ from langchain_core.utils.function_calling import convert_to_openai_function
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 from openai import AuthenticationError, RateLimitError
+from pydantic import BaseModel, Field
 
 from dataline.errors import UserFacingError
 from dataline.models.llm_flow.schema import QueryResultSchema
@@ -43,6 +44,11 @@ class Condition(ABC):
     @abstractmethod
     def run(cls, state: QueryGraphState) -> NodeName:
         raise NotImplementedError
+
+class ValidationResponseFormatter(BaseModel):
+
+    result: bool = Field(description="True / False for validation")
+    reason: str = Field(description="reason if validation fails else empty")
 
 
 class CallModelNode(Node):
@@ -173,17 +179,9 @@ class ShouldCallToolCondition(Condition):
 class ShouldCallModelCondition(Condition):
     @classmethod
     def run(cls, state: QueryGraphState) -> NodeName:
-        """
-
-        """
-        messages = state.messages
-        last_message = messages[-1]
-        # If there is no function call, then we go to end
-        if "YES" not in last_message.content:
-            return END
-        # Otherwise if there is, we continue
-        else:
+        if state.query_validation:
             return CallModelNode.__name__
+        return END
 
 class QueryValidationNode(Node):
     @classmethod
@@ -203,12 +201,13 @@ class QueryValidationNode(Node):
             temperature=0,
             streaming=True,
         )
-        if state.connection.config:
-            validation_prompt = PROMPT_VALIDATION_QUERY + "\n " + "Validation Prompt: " + state.connection.config.validation_query+ "User Message: " + last_message.content
+        model = model.with_structured_output(ValidationResponseFormatter)
+        if state.validation_query:
+            validation_prompt = PROMPT_VALIDATION_QUERY + "\n " + "Validation Prompt: " + state.validation_query+ "User Message: " + last_message.content
         else:
-            return state_update(messages)
+            return state_update(query_validation=True)
         try:
-            response = model.invoke(validation_prompt)
+            validation_response: ValidationResponseFormatter = model.invoke(validation_prompt)
         except RateLimitError as e:
             body = cast(dict, e.body)
             raise UserFacingError(body.get("message", "OpenAI API rate limit exceeded"))
@@ -218,6 +217,10 @@ class QueryValidationNode(Node):
         except Exception as e:
             raise UserFacingError(str(e))
 
-        return state_update(messages=[response])
+        if not validation_response.result:
+            ai_message = AIMessage( content=validation_response.reason)
+            return state_update(messages=[ai_message], query_validation=False)
+        return state_update(query_validation= True)
+
 
 

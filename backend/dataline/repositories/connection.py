@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from dataline.models.connection.model import ConnectionModel
 from dataline.repositories.base import AsyncSession, BaseRepository
-from dataline.models.connection.schema import ConnectionOptions
+from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
 
 
 class ConnectionType(Enum):
@@ -32,6 +32,7 @@ class ConnectionCreate(BaseModel):
     options: ConnectionOptions | None = None
     glossary: Dict[str,str] | None = None
     unique_value_dict: dict[str, list[tuple[str,str]]] | None = None
+    config: ConnectionConfigSchema | None = None
 
 
 class ConnectionUpdate(BaseModel):
@@ -46,6 +47,7 @@ class ConnectionUpdate(BaseModel):
     options: ConnectionOptions | None = None
     glossary: Dict[str, str] | None = None
     unique_value_dict: dict[str, list[tuple[str,str]]] | None = None
+    config: ConnectionConfigSchema | None = None
 
 
 class ConnectionRepository(BaseRepository[ConnectionModel, ConnectionCreate, ConnectionUpdate]):

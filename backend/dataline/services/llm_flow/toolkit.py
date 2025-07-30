@@ -20,7 +20,6 @@ from langchain_core.tools import BaseTool, BaseToolkit
 from langgraph.prebuilt import ToolExecutor
 from pydantic import BaseModel, Field, SkipValidation
 
-from dataline.models.connection.schema import Connection
 from dataline.models.llm_flow.schema import (
     ChartGenerationResult,
     QueryOptions,
@@ -49,6 +48,7 @@ logger = logging.getLogger(__name__)
 class QueryGraphStateUpdate(TypedDict):
     messages: Sequence[BaseMessage]
     results: Sequence[QueryResultSchema]
+    query_validation: bool
 
 
 class RunException(Exception):
@@ -143,7 +143,6 @@ class ToolNames:
     LIST_SQL_TABLES = "list_sql_tables"
     QUERY_SQL_CORRECTOR = "sql_db_query_corrector"
     GENERATE_CHART = "generate_chart"
-    VALIDATE_QUERY  = "validate_query"
 
 
 class BaseSQLDatabaseTool(BaseTool):
@@ -230,13 +229,13 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         custom_table_data = getattr(self.db, "_custom_table_info", {})
 
         for table_name in table_names.split(','):
-            table_info = custom_table_data.get(table_name, {})
+            table_info = custom_table_data.get(table_name.strip(), {})
             table_metadata += f'table: {table_name} , \n'
             for col in table_info.get("columns", []):
-                if "enabled" in col and col["enabled"] and "name" in col:
-                    for relation in col.get("relationship"):
-                        table_metadata+= f'{table_name} {col.get("name")} -> {relation.get("schema_name")}.{relation.get("table")} {relation.get("column")}'
-        return self.db.get_table_info(self.table_names) + table_metadata
+                for relation in col.get("relationship"):
+                    if relation.get("table") in table_names:
+                        table_metadata+= f'\n{table_name} {col.get("name")} -> {relation.get("schema_name")}.{relation.get("table")} {relation.get("column")} \n'
+        return self.db.get_table_info(self.table_names) + "\n" + table_metadata
 
 
     def get_response(  # type: ignore[misc]
@@ -507,16 +506,17 @@ class QueryGraphState(BaseModel):
     options: QueryOptions
     sql_toolkit: SQLDatabaseToolkit
     tool_executor: ToolExecutor
-    connection: Connection
+    validation_query: Optional[str] = None
+    query_validation: Optional[bool] = False
 
     class Config:
         arbitrary_types_allowed = True
 
 
 def state_update(
-    messages: Sequence[BaseMessage] = [], results: Sequence[QueryResultSchema] = []
+    messages: Sequence[BaseMessage] = [], results: Sequence[QueryResultSchema] = [], query_validation:bool = False,
 ) -> QueryGraphStateUpdate:
-    return {"messages": messages, "results": results}
+    return {"messages": messages, "results": results, "query_validation": query_validation}
 
 
 class _ChartGeneratorToolInput(BaseModel):
