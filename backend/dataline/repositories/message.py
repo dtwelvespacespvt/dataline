@@ -45,14 +45,14 @@ class MessageRepository(BaseRepository[MessageModel, MessageCreate, MessageUpdat
             .where(
         ConversationModel.connection_id == connection_id,
                     ConversationModel.user_id == user_id
-            )
-            .outerjoin(
-                ResultModel,
-                onclause=(ResultModel.message_id == MessageModel.id)
-                & (ResultModel.type == QueryResultType.SQL_QUERY_STRING_RESULT.value),
-            )
-            .options(contains_eager(MessageModel.results))
+            ).limit(n)
+            # .outerjoin(
+            #     ResultModel,
+            #     onclause=(ResultModel.message_id == MessageModel.id)
+            #     & (ResultModel.type == QueryResultType.SQL_QUERY_STRING_RESULT.value),
+            # )
+            # .options(contains_eager(MessageModel.results))
             .order_by(MessageModel.created_at.desc())
-            .limit(n)
+            # .limit(n)
         )
         return await self.list_unique(session, query=query)
