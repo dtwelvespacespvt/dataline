@@ -230,7 +230,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
 
         for table_name in table_names.split(','):
             table_info = custom_table_data.get(table_name.strip(), {})
-            table_metadata += f'table: {table_name} , \n'
+            table_metadata += f'\n table: {table_name} , \n'
             for col in table_info.get("columns", []):
                 for relation in col.get("relationship"):
                     if relation.get("table") in table_names:
