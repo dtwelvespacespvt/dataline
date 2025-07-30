@@ -428,7 +428,7 @@ class ConnectionService:
                 ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
             )
             update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
-            update.unique_value_dict = await self.generate_unique_value_dict(update.options.options, db)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options, db)
         elif data.options:
             # only modify options if dsn hasn't changed
             update.options = data.options

@@ -314,7 +314,7 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         results: list[QueryResultSchema] = []
 
         # Add SQL query to results
-        query_string_result = SQLQueryStringResult(sql=args["query"], for_chart=args["for_chart"])
+        query_string_result = SQLQueryStringResult(sql=args["query"], for_chart=args["for_chart"] if "for_chart" in args else False)
         results.append(query_string_result)
 
         # Attempt to link previous selected tables result to this query (backlinking, weird IK)
