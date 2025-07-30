@@ -324,7 +324,8 @@ class ConnectionService:
                     type=col["type"],
                     primary_key=col["primary_key"],
                     enabled=True,
-                    description=column_descriptions.get(col["name"], "")
+                    description=column_descriptions.get(col["name"], ""),
+                    reverse_look_up=False
                 )
                 for col in columns
             ] if len(columns) > 0 else []
@@ -352,7 +353,8 @@ class ConnectionService:
                         type=col["type"],
                         primary_key=col["primary_key"],
                         enabled=True,
-                        description=column_descriptions.get(col["name"], "")
+                        description=column_descriptions.get(col["name"], ""),
+                        reverse_look_up=False
                     )
                     for col in columns
                 ] if len(columns) > 0 else []
@@ -379,7 +381,8 @@ class ConnectionService:
                         enabled=column_enabled.get(col.name, False),
                         description=column_descriptions.get(col.name, ""),
                         relationship=col.relationship,
-                        possible_values=col.possible_values
+                        possible_values=col.possible_values,
+                        reverse_look_up = col.reverse_look_up
                     )
                     for col in columns
                 ] if len(columns) > 0 else []
@@ -428,14 +431,14 @@ class ConnectionService:
                 ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
             )
             update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
-            update.unique_value_dict = await self.generate_unique_value_dict(update.options, db)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         elif data.options:
             # only modify options if dsn hasn't changed
             update.options = data.options
             # generate Unique Value Dict
             connection = await self.connection_repo.get_by_uuid(session, connection_uuid)
             db = await self.get_db_from_dsn(connection.dsn)
-            update.unique_value_dict = await self.generate_unique_value_dict(update.options, db)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         if data.name:
             update.name = data.name
         if data.glossary:
@@ -465,7 +468,7 @@ class ConnectionService:
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
         update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
-        update.unique_value_dict = await self.generate_unique_value_dict(update.options, db)
+        update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -752,11 +755,16 @@ class ConnectionService:
         return the_dict
 
     @classmethod
-    async def generate_unique_value_dict(cls, options: ConnectionOptions, db: SQLDatabase):
-        unique_values= {}
-        for schema_obj in options.schemas:
-            for table in schema_obj.tables:
-                unique_values.update(db.generate_unique_values_sql((table.name, list(filter(lambda column: column.possible_values, table.columns))), schema_obj.name))
+    async def generate_unique_value_dict(cls, options: ConnectionOptions):
+        unique_values = defaultdict(list)
+        for schema in options.schemas:
+            for table in schema.tables:
+                qualified_table_name = f"{schema.name}.{table.name}"
 
+                for column in table.columns:
+                    if column.reverse_look_up and column.possible_values:
+                        for key in column.possible_values:
+                            value_tuple = (column.name, qualified_table_name)
+                            unique_values[key].append(value_tuple)
         return unique_values
 

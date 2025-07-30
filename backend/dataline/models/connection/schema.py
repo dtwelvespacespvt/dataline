@@ -23,6 +23,7 @@ class ConnectionSchemaTableColumn(BaseModel):
     description: Optional[str] = None
     relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
     enabled: Optional[bool] = False
+    reverse_look_up: Optional[bool] = False
 
 
 class ConnectionSchemaTable(BaseModel):
