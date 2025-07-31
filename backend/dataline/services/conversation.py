@@ -142,9 +142,12 @@ class ConversationService:
         return ConversationOut.model_validate(conversation)
 
     @classmethod
-    def _add_glossary_util(cls, glossary:Dict[str,str], query:str)->str:
+    def _add_glossary_util(cls, glossary:Dict[str,str], query:str, history:list[BaseMessage])->str:
         pattern = f"<(.+?)>"
         glossary_words =  re.findall(pattern, query)
+        for message in history:
+            if message.type == BaseMessageType.HUMAN:
+                glossary_words.extend(re.findall(pattern, message.content))
         if not glossary_words:
             return query
         glossary_words = set(glossary_words)
@@ -188,7 +191,7 @@ class ConversationService:
         results: list[ResultType] = []
         # Perform query and execute graph
         langsmith_api_key = user_with_model_details.langsmith_api_key
-        cleaned_query = self._add_glossary_util(connection.glossary, query)
+        cleaned_query = self._add_glossary_util(connection.glossary, query, history)
         if connection.unique_value_dict is not None:
             cleaned_query = self._add_reverse_look_up_util(connection.unique_value_dict, cleaned_query)
         async for chunk in (query_graph.query(

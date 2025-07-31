@@ -227,16 +227,17 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         self.table_names = list(valid_tables)
         table_metadata= ""
         custom_table_data = getattr(self.db, "_custom_table_info", {})
-
-        for table_name in table_names.split(','):
+        for table_name in self.table_names:
             table_info = custom_table_data.get(table_name.strip(), {})
-            table_metadata += f'\n table: {table_name} , \n'
             for col in table_info.get("columns", []):
                 for relation in col.get("relationship"):
-                    if relation.get("table") in table_names:
-                        table_metadata+= f'\n{table_name} {col.get("name")} -> {relation.get("schema_name")}.{relation.get("table")} {relation.get("column")} \n'
-        return self.db.get_table_info(self.table_names) + "\n" + table_metadata
-
+                    related_table_name = relation.get("table")
+                    if related_table_name in table_names:
+                        from_col_ref = f"'{table_name}.{col.get('name')}'"
+                        to_col_ref = f"'{relation.get('schema_name')}.{related_table_name}.{relation.get('column')}'"
+                        metadata_line = f"-- Foreign Key: The {from_col_ref} column references {to_col_ref}. \n"
+                        table_metadata += metadata_line
+        return self.db.get_table_info(self.table_names) + table_metadata if table_metadata else ("\nSelected Table Relations: \n" + table_metadata)
 
     def get_response(  # type: ignore[misc]
         self,
@@ -255,7 +256,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
             messages.append(tool_message)
             return state_update(messages=messages)
 
-        # We use the response to create a ToolMessage
+        # We use the response to creaxte a ToolMessage
         tool_message = ToolMessage(content=str(response), name=self.name, tool_call_id=call_id)
         messages.append(tool_message)
 
@@ -415,7 +416,7 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting metadata about available tables."""
 
     name: str = ToolNames.LIST_SQL_TABLES
-    description: str = "Returns a list of table metadata including schema name, table name, table description, and table columns info - column name, column type, column possible_values, column description and column relationships with other other columns in other tables, . Input should be an empty string."
+    description: str = "Returns a list of table metadata including schema name, table name, table description with other other columns in other tables, . Input should be an empty string."
     args_schema: Type[BaseModel] = _ListSQLTablesToolInput
 
     def _run(  # type: ignore
@@ -432,16 +433,17 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
         for table_name in usable_tables:
             table_info = custom_table_data.get(table_name, {})
             description = table_info.get("description", "")
-            columns = [{"name": col.get("name"), "description": col.get("description"),
-                        "possible_values": col.get("possible_values"),
-                        "relationship": col.get("relationship"),
-                        "type": col.get("relationship")}
-                       for col in table_info.get("columns", []) if "enabled" in col and col["enabled"] and "name" in col]
+            # columns = [{"name": col.get("name"), "description": col.get("description"),
+            #             "possible_values": col.get("possible_values"),
+            #             "relationship": col.get("relationship"),
+            #             "type": col.get("type")
+            #             }
+            #            for col in table_info.get("columns", []) if "name" in col]
 
             table_metadata.append({
                 "name": table_name,
                 "description": description,
-                "columns": columns,
+                # "columns": columns,
             })
 
         return table_metadata
@@ -469,7 +471,7 @@ class SQLDatabaseToolkit(BaseToolkit):
             "Input to this tool is a comma-separated list of tables, output is the "
             "schema, possible values(if any) and its relationships with other table and sample rows for those tables."
             "Be sure that the tables actually exist by calling "
-            f"{list_sql_database_tool.name} first! "
+            f"{list_sql_database_tool.name} first! Call {list}"
             "Example Input: table1, table2, table3"
         )
         info_sql_database_tool = InfoSQLDatabaseTool(db=self.db, description=info_sql_database_tool_description)
