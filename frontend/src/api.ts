@@ -1,6 +1,5 @@
 import { isAxiosError } from "axios";
 import * as types from "./components/Library/types";
-import { IEditConnection } from "./components/Library/types";
 import {
   apiURL,
   backendApi,
@@ -129,7 +128,7 @@ export type UpdateConnectionResult = ApiResponse<{
 }>;
 const updateConnection = async (
   connectionId: string,
-  edits: IEditConnection
+  edits: types.IEditConnection
 ): Promise<UpdateConnectionResult> => {
   const response = await backendApi<UpdateConnectionResult>({
     url: `/connection/${connectionId}`,
@@ -151,7 +150,7 @@ const deleteConnection = async (
 
 const generateDescriptions = async (
   connectionId: string,
-  edits: IEditConnection
+  edits: types.IEditConnection
 ): Promise<UpdateConnectionResult> => {
   const response = await backendApi<UpdateConnectionResult>({
     url: `/connection/${connectionId}/generate/descriptions`,
@@ -163,7 +162,7 @@ const generateDescriptions = async (
 
 const generateRelationships = async (
   connectionId: string,
-  edits: IEditConnection
+  edits: types.IEditConnection
 ): Promise<UpdateConnectionResult> => {
   const response = await backendApi<UpdateConnectionResult>({
     url: `/connection/${connectionId}/generate/relationships`,
@@ -506,6 +505,17 @@ const getRelationships = async (
   ).data;
 };
 
+export type GetDictionaryResult = ApiResponse<types.DictionaryResult>;
+const getDictionary = async (
+  connectionId: string,
+): Promise<GetDictionaryResult> => {
+  return (
+    await backendApi<GetDictionaryResult>({
+      url: `/connection/${connectionId}/getDict`,
+    })
+  ).data;
+};
+
 export const api = {
   healthcheck,
   hasAuth,
@@ -540,5 +550,6 @@ export const api = {
   refreshChart,
   getExportDataUrl,
   getPossibleValues,
-  getRelationships
+  getRelationships,
+  getDictionary
 };

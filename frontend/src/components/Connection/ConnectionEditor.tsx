@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { IConnectionOptions, IEditConnection } from "@components/Library/types";
+import { GlossaryItem, IConnectionOptions, IEditConnection } from "@components/Library/types";
 import { ArrowPathIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { AlertIcon, AlertModal } from "@components/Library/AlertModal";
@@ -12,6 +12,7 @@ import {
   useRefreshConnectionSchema,
   useGenerateDescriptions,
   useGenerateRelationships,
+  useGetDictionary,
 } from "@/hooks";
 import { api } from "@/api";
 import { Button } from "../Catalyst/button";
@@ -40,7 +41,7 @@ const SchemaEditor = ({
   const [loadingPossibleValuesMap, setLoadingPossibleValuesMap] = useState<Record<string, boolean>>({});
   const [loadingRelationshipsMap, setLoadingRelationshipsMap] = useState<Record<string, boolean>>({});
 
-  const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index, relation_index=-1 }: {
+  const columnFieldChangeHandler = ({ value, name, column_index, table_index, schema_index, relation_index = -1 }: {
     value: unknown, name: string, column_index: number, table_index: number, schema_index: number, relation_index?: number
   }) => {
     const newOptions = structuredClone(options);
@@ -69,7 +70,7 @@ const SchemaEditor = ({
   }
 
   const updatePossibleValues = async (connectionId: string, schema_name: string, table_name: string, column_name: string, column_index: number, table_index: number, schema_index: number,) => {
-     const key = `${schema_index}-${table_index}-${column_index}`;
+    const key = `${schema_index}-${table_index}-${column_index}`;
     setLoadingPossibleValuesMap(prev => ({ ...prev, [key]: true }));
     try {
       const result = await api.getPossibleValues(connectionId, schema_name, table_name, column_name);
@@ -430,7 +431,95 @@ const SchemaEditor = ({
     </div >
   );
 };
+const GlossaryEditor = ({
+  glossary,
+  setGlossary,
+  setUnsavedChanges
+}: {
+  glossary: GlossaryItem[];
+  setGlossary: React.Dispatch<React.SetStateAction<GlossaryItem[]>>;
+  setUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
 
+  const onAddNewGlossary = () => {
+    setGlossary((prev) => ([...prev, { key: "key", value: "" }]))
+  }
+
+  const glossaryChangeHandler = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    i: number
+  ) => {
+    const { name, value } = e.target;
+    const _newGlossary: GlossaryItem[] = [...glossary];
+    _newGlossary[i][name as keyof GlossaryItem] = value;
+    setGlossary(_newGlossary);
+    setUnsavedChanges(true);
+  }
+
+  return (
+    <>
+      <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
+        <div className="w-full overflow-auto p-6">
+          <table className="w-full text-sm/6 font-medium text-white text-left border-collapse border">
+            <thead>
+              <tr>
+                <th className="px-3 py-2 border-r border-b w-80">Key</th>
+                <th className="px-3 py-2 border-r border-b">Value</th>
+                <th className="px-3 py-2 border-b w-14">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                glossary?.map((glossaryData: GlossaryItem, index: number) =>
+                  <tr key={index}>
+                    <td className="px-3 py-2 border">
+                      <input
+                        type="text"
+                        name="key"
+                        disabled={false}
+                        value={glossaryData?.key}
+                        onChange={(e) => glossaryChangeHandler(e, index)}
+                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                      />
+                    </td>
+                    <td className="px-3 py-2 border">
+                      <textarea
+                        name="value"
+                        disabled={false}
+                        value={glossaryData?.value}
+                        onChange={(e) => glossaryChangeHandler(e, index)}
+                        className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center border">
+                      <button
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => { }}
+                      >
+                        <PencilSquareIcon className="size-5" />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              }
+            </tbody>
+          </table>
+          <div className="py-3 flex justify-end">
+            <Button
+              onClick={() => onAddNewGlossary()}
+              color="green"
+              disabled={false}
+            >
+              Add New Glossary
+            </Button>
+
+          </div>
+
+        </div>
+      </div>
+    </>
+  )
+}
 const connectionRouteApi = getRouteApi("/_app/connection/$connectionId");
 
 export const ConnectionEditor = () => {
@@ -448,6 +537,9 @@ export const ConnectionEditor = () => {
     ) ?? [];
 
   const connection = data;
+  const glossaryData: Record<string, string> = data?.glossary ?? ({} as Record<string, string>);
+
+  const newGlsry = Object?.keys(glossaryData).map((key: string) => ({ key, value: glossaryData?.[key] || "" }))
 
   const { mutate: deleteConnection } = useDeleteConnection({
     onSuccess() {
@@ -493,12 +585,17 @@ export const ConnectionEditor = () => {
     dsn: ""
   });
 
+  const [glossary, setGlossary] = useState(newGlsry)
+
+
+
   useEffect(() => {
     setEditFields((prev) => ({
       name: connection?.name || prev.name,
       dsn: connection?.dsn || prev.dsn,
       options: connection?.options || prev.options,
     }));
+    setGlossary(newGlsry);
   }, [connection]);
 
   if (!connectionId) {
@@ -565,6 +662,13 @@ export const ConnectionEditor = () => {
     });
   }
 
+  const convertToKeyValueObject = (arrayList: any) => {
+    return arrayList.reduce((acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    }, {});
+  };
+
   function handleSubmit() {
     if (!unsavedChanges) {
       navigate({ to: "/" }); // Return to previous page
@@ -580,10 +684,10 @@ export const ConnectionEditor = () => {
         name: editFields.name,
         ...(editFields.dsn !== connection?.dsn && { dsn: editFields.dsn }),
         options: editFields.options,
+        glossary: convertToKeyValueObject(glossary)
       },
     });
   }
-
   return (
     <div className="dark:bg-gray-900 w-full h-full relative flex flex-col mt-16 lg:mt-0">
       <AlertModal
@@ -680,6 +784,23 @@ export const ConnectionEditor = () => {
                 )}
               />
             </div>
+          </div>
+
+          <div className="sm:col-span-6">
+            <div className="flex items-center mb-2 gap-x-2">
+              <label
+                htmlFor="schema"
+                className="block text-sm font-medium leading-6 text-white"
+              >
+                Glossary
+              </label>
+            </div>
+
+            <GlossaryEditor
+              glossary={glossary}
+              setGlossary={setGlossary}
+              setUnsavedChanges={setUnsavedChanges}
+            />
           </div>
 
           <div className="sm:col-span-6">

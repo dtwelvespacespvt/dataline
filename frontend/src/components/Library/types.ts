@@ -141,12 +141,14 @@ export interface IConnection {
   dialect: string;
   is_sample: boolean;
   options?: IConnectionOptions;
+  glossary?: object;
 }
 
 export interface IEditConnection {
   name: string;
   dsn?: string;
   options?: IConnectionOptions;
+  glossary?: object;
 }
 
 export interface IUserInfo {
@@ -164,3 +166,13 @@ export interface PossibleValuesResult {
 export interface RelationshipsResult {
   relationships: []
 }
+
+export interface GlossaryItem {
+  key: string;
+  value: string;
+}
+export interface DictionaryResult {
+  glossary: GlossaryItem
+}
+
+
