@@ -24,6 +24,7 @@ class ConnectionSchemaTableColumn(TypedDict):
     description: str
     relationship: list[ConnectionSchemaTableColumnRelationship]
     enabled: bool
+    reverse_look_up: NotRequired[bool]
 
 
 class ConnectionSchemaTable(TypedDict):
