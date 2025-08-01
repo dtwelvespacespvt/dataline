@@ -552,7 +552,7 @@ export const ConnectionEditor = () => {
     ) ?? [];
 
   const connection = data;
-  const glossaryData: Record<string, string> = data?.glossary ?? ({} as Record<string, string>);
+  const glossaryData: any = data?.glossary ?? {};
 
   const newGlsry = Object?.keys(glossaryData).map((key: string) => ({ key, value: glossaryData?.[key] || "" }))
 
@@ -678,7 +678,7 @@ export const ConnectionEditor = () => {
   }
 
   const convertToKeyValueObject = (arrayList: any) => {
-    return arrayList.reduce((acc, item) => {
+    return arrayList.reduce((acc: any, item: any) => {
       acc[item.key] = item.value;
       return acc;
     }, {});

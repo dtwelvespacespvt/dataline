@@ -5,11 +5,9 @@ import {
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import {
-  SetStateAction,
   forwardRef,
   useRef,
   useState,
-  useEffect,
 } from "react";
 import { Switch, SwitchField, SwitchGroup } from "../Catalyst/switch";
 import { Description, Fieldset, Label } from "../Catalyst/fieldset";
@@ -154,7 +152,7 @@ const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
           transformed = transformed.replace(tagRegex, `<${tag}>`);
         }
       }
-      
+
       onSubmit(transformed);
       setInputValue("");
       setShowSuggestions(false);
