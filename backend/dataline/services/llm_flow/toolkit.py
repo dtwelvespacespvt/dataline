@@ -256,7 +256,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
             messages.append(tool_message)
             return state_update(messages=messages)
 
-        # We use the response to creaxte a ToolMessage
+        # We use the response to create a ToolMessage
         tool_message = ToolMessage(content=str(response), name=self.name, tool_call_id=call_id)
         messages.append(tool_message)
 
