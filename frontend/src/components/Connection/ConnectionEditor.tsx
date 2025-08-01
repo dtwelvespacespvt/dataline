@@ -12,7 +12,6 @@ import {
   useRefreshConnectionSchema,
   useGenerateDescriptions,
   useGenerateRelationships,
-  useGetDictionary,
 } from "@/hooks";
 import { api } from "@/api";
 import { Button } from "../Catalyst/button";
@@ -20,7 +19,7 @@ import { Transition } from "@headlessui/react";
 import { Switch } from "@components/Catalyst/switch";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import {
-  PencilSquareIcon
+  PencilSquareIcon, TrashIcon
 } from "@heroicons/react/24/outline";
 
 function classNames(...classes: string[]) {
@@ -456,6 +455,12 @@ const GlossaryEditor = ({
     setUnsavedChanges(true);
   }
 
+  const removeGlossaryData = (index: number) => {
+    const _newGlossary: GlossaryItem[] = [...glossary];
+    _newGlossary.splice(index, 1)
+    setGlossary(_newGlossary);
+  }
+
   return (
     <>
       <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
@@ -494,9 +499,9 @@ const GlossaryEditor = ({
                     <td className="px-3 py-2 text-center border">
                       <button
                         className="text-gray-400 hover:text-white"
-                        onClick={() => { }}
+                        onClick={() => removeGlossaryData(index)}
                       >
-                        <PencilSquareIcon className="size-5" />
+                        <TrashIcon className="size-5" />
                       </button>
                     </td>
                   </tr>
