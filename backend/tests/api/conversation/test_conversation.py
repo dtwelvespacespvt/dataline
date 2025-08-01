@@ -6,6 +6,7 @@ from dataline.models.conversation.schema import ConversationOut
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_create_conversation(client: TestClient, dvdrental_connection: Connection) -> None:
     data = {
         "connection_id": str(dvdrental_connection.id),
@@ -23,6 +24,7 @@ async def test_create_conversation(client: TestClient, dvdrental_connection: Con
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_update_conversation_name(client: TestClient, sample_conversation: ConversationOut) -> None:
     data = {
         "name": "New name",
@@ -39,6 +41,7 @@ async def test_update_conversation_name(client: TestClient, sample_conversation:
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_delete_conversation(client: TestClient, sample_conversation: ConversationOut) -> None:
     response = client.delete(f"/conversation/{sample_conversation.id}")
     assert response.status_code == 200
@@ -49,6 +52,7 @@ async def test_delete_conversation(client: TestClient, sample_conversation: Conv
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_get_conversation(client: TestClient, sample_conversation: ConversationOut) -> None:
     response = client.get(f"/conversation/{sample_conversation.id}")
     assert response.status_code == 200
@@ -62,6 +66,7 @@ async def test_get_conversation(client: TestClient, sample_conversation: Convers
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_get_conversation_with_messages_with_results(
     client: TestClient, sample_conversation: ConversationOut
 ) -> None:

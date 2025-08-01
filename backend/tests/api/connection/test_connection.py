@@ -88,7 +88,7 @@ async def test_get_connections(client: TestClient, dvdrental_connection: Connect
 
 @pytest.mark.asyncio
 async def test_get_connection(client: TestClient, dvdrental_connection: Connection) -> None:
-    response = client.get(f"/connection/{str(dvdrental_connection.id)}")
+    response = client.get(f"/api/connection/{str(dvdrental_connection.id)}")
 
     assert response.status_code == 200
 

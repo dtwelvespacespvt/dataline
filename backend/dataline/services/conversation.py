@@ -146,7 +146,7 @@ class ConversationService:
         pattern = f"<(.+?)>"
         glossary_words =  re.findall(pattern, query)
         for message in history:
-            if message.type == BaseMessageType.HUMAN:
+            if message.type == BaseMessageType.HUMAN.value:
                 glossary_words.extend(re.findall(pattern, message.content))
         if not glossary_words:
             return query
@@ -192,6 +192,7 @@ class ConversationService:
         # Perform query and execute graph
         langsmith_api_key = user_with_model_details.langsmith_api_key
         cleaned_query = self._add_glossary_util(connection.glossary, query, history)
+        cleaned_query =  cleaned_query.strip(' \t\n\r')
         if connection.unique_value_dict is not None:
             cleaned_query = self._add_reverse_look_up_util(connection.unique_value_dict, cleaned_query)
         async for chunk in (query_graph.query(
