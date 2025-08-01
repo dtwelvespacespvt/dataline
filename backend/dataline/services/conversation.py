@@ -1,11 +1,13 @@
 import logging
-from typing import AsyncGenerator, cast
+import re
+from typing import AsyncGenerator, cast, Dict
 from uuid import UUID
 
 from fastapi import Depends
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from openai._exceptions import APIError
 
+from dataline.config import config
 from dataline.errors import UserFacingError
 from dataline.models.conversation.schema import (
     ConversationOut,
@@ -36,6 +38,7 @@ from dataline.repositories.conversation import (
 )
 from dataline.repositories.message import MessageRepository
 from dataline.repositories.result import ResultRepository
+from dataline.repositories.user import UserRepository
 from dataline.services.connection import ConnectionService
 from dataline.services.llm_flow.graph import QueryGraphService
 from dataline.services.llm_flow.llm_calls.conversation_title_generator import (
@@ -66,12 +69,14 @@ class ConversationService:
         result_repo: ResultRepository = Depends(ResultRepository),
         connection_service: ConnectionService = Depends(ConnectionService),
         settings_service: SettingsService = Depends(SettingsService),
+        user_repo: UserRepository = Depends(UserRepository)
     ) -> None:
         self.conversation_repo = conversation_repo
         self.message_repo = message_repo
         self.result_repo = result_repo
         self.connection_service = connection_service
         self.settings_service = settings_service
+        self.user_repo = user_repo
 
     async def generate_title(self, session: AsyncSession, conversation_id: UUID) -> str:
         conversation = await self.get_conversation_with_messages(session, conversation_id)
@@ -103,8 +108,9 @@ class ConversationService:
         connection_id: UUID,
         name: str,
     ) -> ConversationOut:
+        user = await self.user_repo.get_one_or_none(session)
         conversation = await self.conversation_repo.create(
-            session, ConversationCreate(connection_id=connection_id, name=name)
+            session, ConversationCreate(connection_id=connection_id, name=name, user_id=user.id)
         )
         return ConversationOut.model_validate(conversation)
 
@@ -135,6 +141,35 @@ class ConversationService:
         )
         return ConversationOut.model_validate(conversation)
 
+    @classmethod
+    def _add_glossary_util(cls, glossary:Dict[str,str], query:str, history:list[BaseMessage])->str:
+        pattern = f"<(.+?)>"
+        glossary_words =  re.findall(pattern, query)
+        for message in history:
+            if message.type == BaseMessageType.HUMAN.value:
+                glossary_words.extend(re.findall(pattern, message.content))
+        if not glossary_words:
+            return query
+        glossary_words = set(glossary_words)
+        query += "\n\n#####Glossary#######\n"
+        for glossary_word in glossary_words:
+            query += glossary_word +": "+glossary.get(glossary_word)+"\n"
+        return query
+
+    @classmethod
+    def _add_reverse_look_up_util(cls, unique_value_dict: Dict[str,list[tuple[str,str]]], query:str):
+
+        pattern = r"\[(.+?)\]"
+        keywords = re.findall(pattern, query)
+        if not keywords:
+            return query
+        keywords = set(keywords)
+        query += "\n\n#####Table Look Up#######\n"
+        for keyword in keywords:
+            for city, table in unique_value_dict.get(keyword , []):
+                query += "{}: Column:  {} , Table:  {} \n".format(keyword, city, table)
+        return query
+
     async def query(
         self,
         session: AsyncSession,
@@ -150,15 +185,18 @@ class ConversationService:
 
         # Create query graph
         query_graph = QueryGraphService(connection=connection)
-        history = await self.get_conversation_history(session, conversation_id)
+        history = await self.get_conversation_history(session, conversation.connection_id)
 
         messages: list[BaseMessage] = []
         results: list[ResultType] = []
         # Perform query and execute graph
         langsmith_api_key = user_with_model_details.langsmith_api_key
-
-        async for chunk in query_graph.query(
-            query=query,
+        cleaned_query = self._add_glossary_util(connection.glossary, query, history)
+        cleaned_query =  cleaned_query.strip(' \t\n\r')
+        if connection.unique_value_dict is not None:
+            cleaned_query = self._add_reverse_look_up_util(connection.unique_value_dict, cleaned_query)
+        async for chunk in (query_graph.query(
+            query=cleaned_query,
             options=QueryOptions(
                 secure_data=secure_data,
                 openai_api_key=user_with_model_details.openai_api_key.get_secret_value(),  # type: ignore
@@ -167,7 +205,7 @@ class ConversationService:
                 llm_model=user_with_model_details.preferred_openai_model,
             ),
             history=history,
-        ):
+        )):
             (chunk_messages, chunk_results) = chunk
             if chunk_messages is not None:
                 messages.extend(chunk_messages)
@@ -253,23 +291,25 @@ class ConversationService:
         )
         yield stream_event_str(event=QueryStreamingEventType.STORED_MESSAGES.value, data=query_out.model_dump_json())
 
-    async def get_conversation_history(self, session: AsyncSession, conversation_id: UUID) -> list[BaseMessage]:
+    async def get_conversation_history(self, session: AsyncSession, connection_id: UUID) -> list[BaseMessage]:
         """
         Get the last 10 messages of a conversation (AI, Human, and System)
         """
-        messages = await self.message_repo.get_by_conversation_with_sql_results(session, conversation_id, n=10)
+        user = await self.user_repo.get_one_or_none(session)
+        connection = await  self.connection_service.get_connection_by_uuid(session, connection_id)
+        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, user.id,  n=config.default_conversation_history_limit)
         base_messages = []
         for message in reversed(messages):  # Reverse to get the oldest messages first (chat format)
             if message.role == BaseMessageType.HUMAN.value:
                 base_messages.append(HumanMessage(content=message.content))
             elif message.role == BaseMessageType.AI.value:
                 base_messages.append(AIMessage(content=message.content))
-                if message.results:
-                    sqls = [
-                        SQLQueryStringResultContent.model_validate_json(result.content).sql
-                        for result in message.results
-                    ]
-                    base_messages.append(AIMessage(content=f"Generated SQL: {str(sqls)}"))
+                # if message.results:
+                #     sqls = [
+                #         SQLQueryStringResultContent.model_validate_json(result.content).sql
+                #         for result in message.results
+                #     ]
+                #     base_messages.append(AIMessage(content=f"Generated SQL: {str(sqls)}"))
             elif message.role == BaseMessageType.SYSTEM.value:
                 base_messages.append(SystemMessage(content=message.content))
             else:

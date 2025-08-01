@@ -17,6 +17,7 @@ class ConversationCreate(BaseModel):
     connection_id: UUID
     name: str
     created_at: datetime = Field(default_factory=datetime.now)
+    user_id: UUID
 
 
 class ConversationUpdate(BaseModel):

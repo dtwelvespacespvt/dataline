@@ -249,6 +249,10 @@ class ConnectionService:
         connections = await self.connection_repo.list_all(session)
         return [ConnectionOut.model_validate(connection) for connection in connections]
 
+    async def get_connection_by_uuid(self, session:AsyncSession, connection_uuid: UUID):
+        connection = await self.connection_repo.get_by_uuid(session, connection_uuid)
+        return ConnectionOut.model_validate(connection)
+
     async def delete_connection(self, session: AsyncSession, connection_id: UUID) -> None:
         await self.connection_repo.delete_by_uuid(session, connection_id)
 
@@ -320,7 +324,8 @@ class ConnectionService:
                     type=col["type"],
                     primary_key=col["primary_key"],
                     enabled=True,
-                    description=column_descriptions.get(col["name"], "")
+                    description=column_descriptions.get(col["name"], ""),
+                    reverse_look_up=False
                 )
                 for col in columns
             ] if len(columns) > 0 else []
@@ -348,7 +353,8 @@ class ConnectionService:
                         type=col["type"],
                         primary_key=col["primary_key"],
                         enabled=True,
-                        description=column_descriptions.get(col["name"], "")
+                        description=column_descriptions.get(col["name"], ""),
+                        reverse_look_up=False
                     )
                     for col in columns
                 ] if len(columns) > 0 else []
@@ -375,7 +381,8 @@ class ConnectionService:
                         enabled=column_enabled.get(col.name, False),
                         description=column_descriptions.get(col.name, ""),
                         relationship=col.relationship,
-                        possible_values=col.possible_values
+                        possible_values=col.possible_values,
+                        reverse_look_up = col.reverse_look_up
                     )
                     for col in columns
                 ] if len(columns) > 0 else []
@@ -424,11 +431,18 @@ class ConnectionService:
                 ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
             )
             update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         elif data.options:
             # only modify options if dsn hasn't changed
             update.options = data.options
+            # generate Unique Value Dict
+            connection = await self.connection_repo.get_by_uuid(session, connection_uuid)
+            db = await self.get_db_from_dsn(connection.dsn)
+            update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         if data.name:
             update.name = data.name
+        if data.glossary:
+            update.glossary = data.glossary
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -454,6 +468,7 @@ class ConnectionService:
             ConnectionOptions.model_validate(current_connection.options) if current_connection.options else None
         )
         update.options = await self.merge_options(session, old_options, db, generate_columns, generate_descriptions)
+        update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
@@ -482,7 +497,7 @@ class ConnectionService:
         return await infer_relationships_per_column(schema, table, column, column_type, fetch_table_schemas(options=old_options), synonyms=synonyms, db=db, existing_relationship=[], ignore_columns_in_relationship=ignore_columns_in_relationship, ignore_types_in_relationship=ignore_types_in_relationship, ignore_comparisons_in_relationship=ignore_comparisons_in_relationship, ignore_prefix_in_relationship=ignore_prefix_in_relationship, threshold=0.05)
 
     async def get_possible_values_per_column(self, session: AsyncSession, connection_uuid: UUID, schema: str, table: str, column: str
-                                                ) -> list:
+                                             ) -> list:
         current_connection = await self.get_connection(session, connection_uuid)
         db = await self.get_db_from_dsn(current_connection.dsn)
         return await get_distinct_values(schema, table, column, db=db)
@@ -521,12 +536,12 @@ class ConnectionService:
         return ConnectionOut.model_validate(updated_connection)
 
     async def create_connection(
-        self,
-        session: AsyncSession,
-        dsn: str,
-        name: str,
-        connection_type: str | None = None,
-        is_sample: bool = False,
+            self,
+            session: AsyncSession,
+            dsn: str,
+            name: str,
+            connection_type: str | None = None,
+            is_sample: bool = False,
     ) -> ConnectionOut:
         # Check if connection can be established before saving it
         db = await self.get_db_from_dsn(dsn)
@@ -725,3 +740,31 @@ class ConnectionService:
         )
 
         return ConnectionOut.model_validate(updated_connection)
+
+    async def get_all_dicts(self, session:AsyncSession, connection_id: UUID) -> dict[str,list]:
+
+        connection = await self.connection_repo.get_by_uuid(session, connection_id)
+
+        the_dict = defaultdict(list)
+        for gloss in connection.glossary:
+            the_dict[gloss].append("glossary")
+
+        for unique_key in connection.unique_value_dict:
+            the_dict[unique_key].append("uniqueKey")
+
+        return the_dict
+
+    @classmethod
+    async def generate_unique_value_dict(cls, options: ConnectionOptions):
+        unique_values = defaultdict(list)
+        for schema in options.schemas:
+            for table in schema.tables:
+                qualified_table_name = f"{schema.name}.{table.name}"
+
+                for column in table.columns:
+                    if column.reverse_look_up and column.possible_values:
+                        for key in column.possible_values:
+                            value_tuple = (column.name, qualified_table_name)
+                            unique_values[key].append(value_tuple)
+        return unique_values
+

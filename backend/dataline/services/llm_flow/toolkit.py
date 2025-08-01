@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 class QueryGraphStateUpdate(TypedDict):
     messages: Sequence[BaseMessage]
     results: Sequence[QueryResultSchema]
+    query_validation: bool
 
 
 class RunException(Exception):
@@ -210,7 +211,6 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                 f"""ERROR: Tables {wrong_tables} that you selected do not exist in the database.
             Available tables are the following, please select from them ONLY: "{'", "'.join(available_names)}"."""
             )
-
         return valid_tables
 
     def _run(
@@ -225,7 +225,19 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         valid_tables = self._validate_sanitize_table_names(table_names, available_names)
 
         self.table_names = list(valid_tables)
-        return self.db.get_table_info(self.table_names)
+        table_metadata= ""
+        custom_table_data = getattr(self.db, "_custom_table_info", {})
+        for table_name in self.table_names:
+            table_info = custom_table_data.get(table_name.strip(), {})
+            for col in table_info.get("columns", []):
+                for relation in col.get("relationship"):
+                    related_table_name = relation.get("table")
+                    if related_table_name in table_names:
+                        from_col_ref = f"'{table_name}.{col.get('name')}'"
+                        to_col_ref = f"'{relation.get('schema_name')}.{related_table_name}.{relation.get('column')}'"
+                        metadata_line = f"-- Foreign Key: The {from_col_ref} column references {to_col_ref}. \n"
+                        table_metadata += metadata_line
+        return self.db.get_table_info(self.table_names) + table_metadata if table_metadata else ("\nSelected Table Relations: \n" + table_metadata)
 
     def get_response(  # type: ignore[misc]
         self,
@@ -303,7 +315,7 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         results: list[QueryResultSchema] = []
 
         # Add SQL query to results
-        query_string_result = SQLQueryStringResult(sql=args["query"], for_chart=args["for_chart"])
+        query_string_result = SQLQueryStringResult(sql=args["query"], for_chart=args["for_chart"] if "for_chart" in args else False)
         results.append(query_string_result)
 
         # Attempt to link previous selected tables result to this query (backlinking, weird IK)
@@ -404,7 +416,7 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting metadata about available tables."""
 
     name: str = ToolNames.LIST_SQL_TABLES
-    description: str = "Returns a list of table metadata including name, description, and columns info - name, type, possible_values, description and relationship with other other columns in other tables, . Input should be an empty string."
+    description: str = "Returns a list of table metadata including schema name, table name, table description. Input should be an empty string."
     args_schema: Type[BaseModel] = _ListSQLTablesToolInput
 
     def _run(  # type: ignore
@@ -421,16 +433,17 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
         for table_name in usable_tables:
             table_info = custom_table_data.get(table_name, {})
             description = table_info.get("description", "")
-            columns = [{"name": col.get("name"), "description": col.get("description"),
-                        "possible_values": col.get("possible_values"),
-                        "relationship": col.get("relationship"),
-                        "type": col.get("relationship")}
-                       for col in table_info.get("columns", []) if "enabled" in col and col["enabled"] and "name" in col]
+            # columns = [{"name": col.get("name"), "description": col.get("description"),
+            #             "possible_values": col.get("possible_values"),
+            #             "relationship": col.get("relationship"),
+            #             "type": col.get("type")
+            #             }
+            #            for col in table_info.get("columns", []) if "name" in col]
 
             table_metadata.append({
                 "name": table_name,
                 "description": description,
-                "columns": columns,
+                # "columns": columns,
             })
 
         return table_metadata
@@ -458,7 +471,7 @@ class SQLDatabaseToolkit(BaseToolkit):
             "Input to this tool is a comma-separated list of tables, output is the "
             "schema, possible values(if any) and its relationships with other table and sample rows for those tables."
             "Be sure that the tables actually exist by calling "
-            f"{list_sql_database_tool.name} first! "
+            f"{list_sql_database_tool.name} first!"
             "Example Input: table1, table2, table3"
         )
         info_sql_database_tool = InfoSQLDatabaseTool(db=self.db, description=info_sql_database_tool_description)
@@ -495,15 +508,17 @@ class QueryGraphState(BaseModel):
     options: QueryOptions
     sql_toolkit: SQLDatabaseToolkit
     tool_executor: ToolExecutor
+    validation_query: Optional[str] = None
+    query_validation: Optional[bool] = False
 
     class Config:
         arbitrary_types_allowed = True
 
 
 def state_update(
-    messages: Sequence[BaseMessage] = [], results: Sequence[QueryResultSchema] = []
+    messages: Sequence[BaseMessage] = [], results: Sequence[QueryResultSchema] = [], query_validation:bool = False,
 ) -> QueryGraphStateUpdate:
-    return {"messages": messages, "results": results}
+    return {"messages": messages, "results": results, "query_validation": query_validation}
 
 
 class _ChartGeneratorToolInput(BaseModel):

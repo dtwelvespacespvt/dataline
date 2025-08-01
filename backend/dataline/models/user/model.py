@@ -1,5 +1,5 @@
 from sqlalchemy import Boolean, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import true
 
 from dataline.models.base import DBModel, UUIDMixin
@@ -14,3 +14,5 @@ class UserModel(DBModel, UUIDMixin, kw_only=True):
     sentry_enabled: Mapped[bool] = mapped_column("sentry_enabled", Boolean, server_default=true())
     analytics_enabled: Mapped[bool] = mapped_column("analytics_enabled", Boolean, server_default=true())
     openai_base_url: Mapped[str | None] = mapped_column("openai_base_url", String, nullable=True)
+
+    conversations: Mapped[list["ConversationModel"]] = relationship("ConversationModel", back_populates="user")

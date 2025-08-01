@@ -1,16 +1,17 @@
-from typing import Any, Generator, Protocol, Self, Sequence, cast
+from collections import defaultdict
+from typing import Any, Generator, Protocol, Self, Sequence, cast, Optional
 
 import logging
 from langchain_community.utilities.sql_database import SQLDatabase
-from sqlalchemy import Engine, MetaData, Row, create_engine, inspect, text
+from sqlalchemy import Engine, MetaData, Row, create_engine, inspect
 from sqlalchemy.engine import CursorResult
-from sqlalchemy.exc import NoSuchTableError, ProgrammingError
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.engine import make_url
 from sqlalchemy import text
 
-from dataline.models.connection.schema import ConnectionOptions
-from pydantic import BaseModel
+
+from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
 import json
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,9 @@ logger = logging.getLogger(__name__)
 class ConnectionProtocol(Protocol):
     dsn: str
     options: ConnectionOptions | None
+    config: ConnectionConfigSchema | None
+    glossary: Optional[dict[str, Any]] = []
+    unique_value_dict: Optional[dict[str, list[tuple[str, str]]]] = []
 
 
 class DatalineSQLDatabase(SQLDatabase):
@@ -334,3 +338,4 @@ class DatalineSQLDatabase(SQLDatabase):
         final_str = "\n\n".join(tables)
         logger.debug(f"get_table_info {final_str}")
         return final_str
+

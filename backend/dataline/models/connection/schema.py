@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -23,6 +23,7 @@ class ConnectionSchemaTableColumn(BaseModel):
     description: Optional[str] = None
     relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
     enabled: Optional[bool] = False
+    reverse_look_up: Optional[bool] = False
 
 
 class ConnectionSchemaTable(BaseModel):
@@ -41,6 +42,11 @@ class ConnectionSchema(BaseModel):
 class ConnectionOptions(BaseModel):
     schemas: list[ConnectionSchema]
 
+class ConnectionConfigSchema(BaseModel):
+    validation_query: Optional[str] = None
+    connection_prompt: Optional[str] = None
+    default_table_limit: Optional[int] = None
+
 
 class Connection(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -53,6 +59,9 @@ class Connection(BaseModel):
     type: str
     is_sample: bool
     options: Optional[ConnectionOptions] = None
+    glossary: Optional[Dict[str,Any]] = None
+    unique_value_dict: Optional[dict[str,list[tuple[str,str]]]] = None
+    config: Optional[ConnectionConfigSchema] = None
 
 
 class ConnectionOut(Connection):
@@ -186,6 +195,9 @@ class ConnectionUpdateIn(BaseModel):
     name: Optional[str] = None
     dsn: Optional[str] = None
     options: Optional[ConnectionOptions] = None
+    glossary: Dict[str,str] = None
+    config: ConnectionConfigSchema = None
+    unique_value_dict: Dict[str, list[tuple[str,str]]] = None
 
     @field_validator("dsn")
     def validate_dsn_format(cls, value: str) -> str:
