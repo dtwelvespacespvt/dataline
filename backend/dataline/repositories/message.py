@@ -1,7 +1,7 @@
 from typing import Sequence, Type
 from uuid import UUID
 
-from sqlalchemy import select, literal_column, union_all, case
+from sqlalchemy import select, case
 from sqlalchemy.orm import contains_eager
 
 from dataline.models.conversation.model import ConversationModel
