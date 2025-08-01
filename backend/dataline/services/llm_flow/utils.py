@@ -10,7 +10,7 @@ from sqlalchemy.schema import CreateTable
 from sqlalchemy.engine import make_url
 from sqlalchemy import text
 
-from dataline.models.connection.schema import ConnectionSchemaTableColumn
+
 from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
 import json
 
@@ -339,19 +339,3 @@ class DatalineSQLDatabase(SQLDatabase):
         logger.debug(f"get_table_info {final_str}")
         return final_str
 
-    @classmethod
-    def generate_unique_values_sql(cls, table_to_columns:tuple[str,list[ConnectionSchemaTableColumn]], schema_name:str|None=None):
-        unique_value_dict = defaultdict(list)
-
-        if not table_to_columns[1]:
-            return unique_value_dict
-
-        table_name = table_to_columns[0]
-        table_columns = table_to_columns[1]
-
-        for column in table_columns:
-            for key in column.possible_values:
-                value_tuple = (column.name, "{}.{}".format(schema_name, table_name))
-                unique_value_dict[key].append(value_tuple)
-
-        return unique_value_dict

@@ -23,6 +23,7 @@ class ConnectionSchemaTableColumn(BaseModel):
     description: Optional[str] = None
     relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
     enabled: Optional[bool] = False
+    reverse_look_up: Optional[bool] = False
 
 
 class ConnectionSchemaTable(BaseModel):
@@ -58,8 +59,8 @@ class Connection(BaseModel):
     type: str
     is_sample: bool
     options: Optional[ConnectionOptions] = None
-    glossary: Optional[Dict[str,Any]] = []
-    unique_value_dict: Optional[dict[str,list[tuple[str,str]]]] = []
+    glossary: Optional[Dict[str,Any]] = None
+    unique_value_dict: Optional[dict[str,list[tuple[str,str]]]] = None
     config: Optional[ConnectionConfigSchema] = None
 
 
