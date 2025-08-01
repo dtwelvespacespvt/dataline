@@ -12,7 +12,6 @@ import {
   useRefreshConnectionSchema,
   useGenerateDescriptions,
   useGenerateRelationships,
-  useGetDictionary,
 } from "@/hooks";
 import { api } from "@/api";
 import { Button } from "../Catalyst/button";
@@ -20,8 +19,9 @@ import { Transition } from "@headlessui/react";
 import { Switch } from "@components/Catalyst/switch";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import {
-  PencilSquareIcon
+  PencilSquareIcon, TrashIcon
 } from "@heroicons/react/24/outline";
+import TextInput from "../Catalyst/TextInput";
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -208,12 +208,12 @@ const SchemaEditor = ({
                           <span className="mx-1 text-white/70">:</span>
                         }
                         {(table?.columns as []).length > 0 &&
-                          <input
+                          <TextInput
                             type="text"
                             name="name"
                             disabled={false}
                             value={table?.description}
-                            onChange={(e) => tableDescriptionFieldChangeHandler({ value: e.target.value, table_index, schema_index })}
+                            onChange={(e: any) => tableDescriptionFieldChangeHandler({ value: e.target.value, table_index, schema_index })}
                             className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                           />}
                         {(table?.columns as []).length > 0 &&
@@ -240,6 +240,7 @@ const SchemaEditor = ({
                                 <th className="px-3 py-2">Type</th>
                                 <th className="px-3 py-2">Primary Key</th>
                                 <th className="px-3 py-2">Possible Values</th>
+                                <th className="px-3 py-2">Lookup</th>
                                 <th className="px-3 py-2">Relationship</th>
                               </tr>
                             </thead>
@@ -257,32 +258,32 @@ const SchemaEditor = ({
                                         />
                                       </td>
                                       <td className="px-3 py-2">
-                                        <input
+                                        <TextInput
                                           type="text"
                                           name="name"
                                           disabled={false}
                                           value={column?.name}
-                                          onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "name", column_index, table_index, schema_index })}
+                                          onChange={(e: any) => columnFieldChangeHandler({ value: e.target.value, name: "name", column_index, table_index, schema_index })}
                                           className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                         />
                                       </td>
                                       <td className="px-3 py-2">
-                                        <input
+                                        <TextInput
                                           type="text"
                                           name="description"
                                           disabled={false}
                                           value={column?.description}
-                                          onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "description", column_index, table_index, schema_index })}
+                                          onChange={(e: any) => columnFieldChangeHandler({ value: e.target.value, name: "description", column_index, table_index, schema_index })}
                                           className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                         />
                                       </td>
                                       <td className="px-3 py-2">
-                                        <input
+                                        <TextInput
                                           type="text"
                                           name="type"
                                           disabled={false}
                                           value={column?.type}
-                                          onChange={(e) => columnFieldChangeHandler({ value: e.target.value, name: "type", column_index, table_index, schema_index })}
+                                          onChange={(e: any) => columnFieldChangeHandler({ value: e.target.value, name: "type", column_index, table_index, schema_index })}
                                           className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                         />
                                       </td>
@@ -318,6 +319,14 @@ const SchemaEditor = ({
                                           </Button>
                                         </div>
 
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <Switch
+                                          color="green"
+                                          name="reverse_look_up"
+                                          checked={column.reverse_look_up}
+                                          onChange={(value) => columnFieldChangeHandler({ value, name: "reverse_look_up", column_index, table_index, schema_index })}
+                                        />
                                       </td>
                                       <td className="px-3 py-2">
                                         <button
@@ -375,32 +384,32 @@ const SchemaEditor = ({
                                                         />
                                                       </td>
                                                       <td className="px-3 py-2">
-                                                        <input
+                                                        <TextInput
                                                           type="text"
                                                           name="schema_name"
                                                           disabled={false}
                                                           value={relation?.schema_name}
-                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "schema_name", column_index, table_index, schema_index, relation_index })}
+                                                          onChange={(e: any) => columnFieldChangeHandler({ value: e.target.value, name: "schema_name", column_index, table_index, schema_index, relation_index })}
                                                           className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                                         />
                                                       </td>
                                                       <td className="px-3 py-2">
-                                                        <input
+                                                        <TextInput
                                                           type="text"
                                                           name="table"
                                                           disabled={false}
                                                           value={relation?.table}
-                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "table", column_index, table_index, schema_index, relation_index })}
+                                                          onChange={(e: any) => columnFieldChangeHandler({ value: e.target.value, name: "table", column_index, table_index, schema_index, relation_index })}
                                                           className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                                         />
                                                       </td>
                                                       <td className="px-3 py-2">
-                                                        <input
+                                                        <TextInput
                                                           type="text"
                                                           name="column"
                                                           disabled={false}
                                                           value={relation?.column}
-                                                          onChange={(value) => columnFieldChangeHandler({ value, name: "column", column_index, table_index, schema_index, relation_index })}
+                                                          onChange={(e: any) => columnFieldChangeHandler({ value: e.target.value, name: "column", column_index, table_index, schema_index, relation_index })}
                                                           className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                                                         />
                                                       </td>
@@ -456,6 +465,12 @@ const GlossaryEditor = ({
     setUnsavedChanges(true);
   }
 
+  const removeGlossaryData = (index: number) => {
+    const _newGlossary: GlossaryItem[] = [...glossary];
+    _newGlossary.splice(index, 1)
+    setGlossary(_newGlossary);
+  }
+
   return (
     <>
       <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
@@ -473,12 +488,12 @@ const GlossaryEditor = ({
                 glossary?.map((glossaryData: GlossaryItem, index: number) =>
                   <tr key={index}>
                     <td className="px-3 py-2 border">
-                      <input
+                      <TextInput
                         type="text"
                         name="key"
                         disabled={false}
                         value={glossaryData?.key}
-                        onChange={(e) => glossaryChangeHandler(e, index)}
+                        onChange={(e: any) => glossaryChangeHandler(e, index)}
                         className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
                       />
                     </td>
@@ -494,9 +509,9 @@ const GlossaryEditor = ({
                     <td className="px-3 py-2 text-center border">
                       <button
                         className="text-gray-400 hover:text-white"
-                        onClick={() => { }}
+                        onClick={() => removeGlossaryData(index)}
                       >
-                        <PencilSquareIcon className="size-5" />
+                        <TrashIcon className="size-5" />
                       </button>
                     </td>
                   </tr>
@@ -738,13 +753,13 @@ export const ConnectionEditor = () => {
               Name
             </label>
             <div className="mt-2">
-              <input
+              <TextInput
                 type="text"
                 name="name"
                 id="name"
                 disabled={false}
                 value={editFields.name}
-                onChange={(e) => {
+                onChange={(e: any) => {
                   setEditFields({ ...editFields, name: e.target.value });
                   setUnsavedChanges(true);
                 }}
@@ -766,13 +781,13 @@ export const ConnectionEditor = () => {
               Database Connection String
             </label>
             <div className="mt-2">
-              <input
+              <TextInput
                 type="text"
                 name="name"
                 id="name"
                 disabled={false}
                 value={editFields.dsn}
-                onChange={(e) => {
+                onChange={(e: any) => {
                   setEditFields({ ...editFields, dsn: e.target.value });
                   setUnsavedChanges(true);
                 }}

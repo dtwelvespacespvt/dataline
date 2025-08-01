@@ -47,6 +47,35 @@ export const Message = ({
   className?: string;
   streaming?: boolean;
 }) => {
+
+  const parseMessageContent = (text: string) => {
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+
+    const regex = /<([^>]+)>|\[([^\]]+)\]/g;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      const before = text.slice(lastIndex, match.index);
+      if (before) parts.push(before);
+
+      if (match[1]) {
+        // Match for <...>
+        parts.push(<span className="rounded-md bg-gray-700/40 px-2 py-1 font-medium text-gray-400 ring-1 ring-inset ring-white/10" key={match.index}>{match[1]}</span>);
+      } else if (match[2]) {
+        // Match for [...]
+        parts.push(<strong className="rounded-md bg-gray-700/40 px-2 py-1 font-medium text-gray-400 ring-1 ring-inset ring-white/10" key={match.index}>{match[2]}</strong>);
+      }
+
+      lastIndex = regex.lastIndex;
+    }
+
+    const after = text.slice(lastIndex);
+    if (after) parts.push(after);
+
+    return parts;
+  };
+
   return (
     <div
       className={classNames(
@@ -74,7 +103,7 @@ export const Message = ({
                         </div>
                       )}
                       <p className=" leading-loose">
-                        {message.message.content}
+                        {parseMessageContent(message.message.content)}
                       </p>
                     </div>
                   </div>
