@@ -280,3 +280,12 @@ export function useRefreshConnectionSchema(
     },
   });
 }
+
+export function useGetDictionary(connectionId: string) {
+  const { isSuccess } = useQuery(getBackendStatusQuery());
+  return useQuery({
+    queryKey: ["CONNECTIONS", { connectionId }],
+    queryFn: async () => (await api.getDictionary(connectionId)).data,
+    enabled: isSuccess && Boolean(connectionId),
+  });
+}

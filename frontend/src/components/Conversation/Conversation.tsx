@@ -11,6 +11,7 @@ import {
   useGenerateConversationTitle,
   useGetConnections,
   useGetConversations,
+  useGetDictionary,
   useSendMessageStreaming,
 } from "@/hooks";
 import { Spinner } from "../Spinner/Spinner";
@@ -50,6 +51,7 @@ export const Conversation = () => {
   const currConversation = conversationsData?.find(
     (conv) => conv.id === params.conversationId
   );
+  const { data: autoCompleteList } = useGetDictionary(currConversation?.connection_id || "");
   const { mutate: generateConversationTitle } = useGenerateConversationTitle();
   const {
     mutate: sendMessageMutation,
@@ -224,6 +226,7 @@ export const Conversation = () => {
             }}
             disabled={currentConversationIsQuerying}
             ref={expandingInputRef}
+            autoCompleteList={autoCompleteList}
           />
           <p className="text-gray-400 text-sm">
             Current Connection: {currConnection?.name}

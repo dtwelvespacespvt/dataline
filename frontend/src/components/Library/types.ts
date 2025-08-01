@@ -121,6 +121,7 @@ export interface IConnectionOptions {
         primary_key?: boolean;
         description?: string;
         enabled?: boolean;
+        reverse_look_up?: boolean;
         relationship?: {
           schema_name?: string;
           table?: string;
@@ -141,12 +142,14 @@ export interface IConnection {
   dialect: string;
   is_sample: boolean;
   options?: IConnectionOptions;
+  glossary?: object;
 }
 
 export interface IEditConnection {
   name: string;
   dsn?: string;
   options?: IConnectionOptions;
+  glossary?: object;
 }
 
 export interface IUserInfo {
@@ -164,3 +167,13 @@ export interface PossibleValuesResult {
 export interface RelationshipsResult {
   relationships: []
 }
+
+export interface GlossaryItem {
+  key: string;
+  value: string;
+}
+export interface DictionaryResult {
+  glossary: GlossaryItem
+}
+
+
