@@ -121,6 +121,7 @@ export interface IConnectionOptions {
         primary_key?: boolean;
         description?: string;
         enabled?: boolean;
+        reverse_look_up?: boolean;
         relationship?: {
           schema_name?: string;
           table?: string;
