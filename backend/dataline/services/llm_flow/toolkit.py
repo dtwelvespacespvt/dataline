@@ -416,7 +416,7 @@ class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting metadata about available tables."""
 
     name: str = ToolNames.LIST_SQL_TABLES
-    description: str = "Returns a list of table metadata including schema name, table name, table description with other other columns in other tables, . Input should be an empty string."
+    description: str = "Returns a list of table metadata including schema name, table name, table description. Input should be an empty string."
     args_schema: Type[BaseModel] = _ListSQLTablesToolInput
 
     def _run(  # type: ignore
@@ -471,7 +471,7 @@ class SQLDatabaseToolkit(BaseToolkit):
             "Input to this tool is a comma-separated list of tables, output is the "
             "schema, possible values(if any) and its relationships with other table and sample rows for those tables."
             "Be sure that the tables actually exist by calling "
-            f"{list_sql_database_tool.name} first! Call {list}"
+            f"{list_sql_database_tool.name} first!"
             "Example Input: table1, table2, table3"
         )
         info_sql_database_tool = InfoSQLDatabaseTool(db=self.db, description=info_sql_database_tool_description)
