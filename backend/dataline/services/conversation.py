@@ -303,12 +303,12 @@ class ConversationService:
                 base_messages.append(HumanMessage(content=message.content))
             elif message.role == BaseMessageType.AI.value:
                 base_messages.append(AIMessage(content=message.content))
-                # if message.results:
-                #     sqls = [
-                #         SQLQueryStringResultContent.model_validate_json(result.content).sql
-                #         for result in message.results
-                #     ]
-                #     base_messages.append(AIMessage(content=f"Generated SQL: {str(sqls)}"))
+                if message.results:
+                    sqls = [
+                        SQLQueryStringResultContent.model_validate_json(result.content).sql
+                        for result in message.results
+                    ]
+                    base_messages.append(AIMessage(content=f"Generated SQL: {str(sqls)}"))
             elif message.role == BaseMessageType.SYSTEM.value:
                 base_messages.append(SystemMessage(content=message.content))
             else:

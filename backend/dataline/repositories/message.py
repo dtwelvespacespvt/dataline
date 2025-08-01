@@ -56,8 +56,18 @@ class MessageRepository(BaseRepository[MessageModel, MessageCreate, MessageUpdat
 
         query = (
             select(MessageModel)
-            .where(MessageModel.conversation_id.in_(latest_conversations_subquery))
             .join(ConversationModel, MessageModel.conversation_id == ConversationModel.id)
-            .order_by(priority_case.asc(), ConversationModel.created_at.desc(), MessageModel.created_at.desc())
+            .outerjoin(
+                ResultModel,
+                (ResultModel.message_id == MessageModel.id)
+                & (ResultModel.type == QueryResultType.SQL_QUERY_STRING_RESULT.value),
+            )
+            .where(MessageModel.conversation_id.in_(latest_conversations_subquery))
+            .options(contains_eager(MessageModel.results))
+            .order_by(
+                priority_case,
+                ConversationModel.created_at.desc(),
+                MessageModel.created_at.desc(),
+            )
         )
         return await self.list_unique(session, query=query)
