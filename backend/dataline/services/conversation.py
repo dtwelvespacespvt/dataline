@@ -359,7 +359,7 @@ class ConversationService:
             if content:
                 docs.append(Document(page_content=content,metadata={"user_id": user.id}))
 
-        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key, model = "text-embedding-3-small")
+        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key, model = config.default_embedding_model)
 
         if not docs:
             return []

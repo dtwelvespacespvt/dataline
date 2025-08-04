@@ -65,4 +65,6 @@ class Config(BaseSettings):
     default_sql_row_limit: int = 200
     default_memory_similarity_score: float = 0.5
 
+    default_embedding_model:str = "text-embedding-3-small"
+
 config = Config()
