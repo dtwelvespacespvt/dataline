@@ -2,6 +2,7 @@ import logging
 import time
 from typing import AsyncGenerator, Sequence, Type
 
+from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tracers.langchain import LangChainTracer
@@ -58,7 +59,7 @@ class QueryGraphService:
         self.tracer = None  # no tracing by default
 
     async def query(
-        self, query: str, options: QueryOptions, history: Sequence[BaseMessage] | None = None
+        self, query: str, options: QueryOptions, history: Sequence[BaseMessage] | None = None, long_term_memory: list[Document] | None = None,
     ) -> AsyncGenerator[tuple[Sequence[BaseMessage] | None, Sequence[ResultType] | None], None]:
         # Setup tracing with langsmith if api key is provided
         if options.langsmith_api_key:
@@ -80,13 +81,12 @@ class QueryGraphService:
 
         initial_state = {
             "messages": [
-                *self.get_prompt_messages(query, history, top_k= top_k),
+                *self.get_prompt_messages(query, history, top_k= top_k, long_term_memory=long_term_memory),
             ],
             "results": [],
             "options": options,
             "sql_toolkit": self.toolkit,
             "tool_executor": self.tool_executor,
-            "validation_query": self.connection.config.validation_query if self.connection.config else None
         }
 
         config: RunnableConfig | None = {"callbacks": [self.tracer], "recursion_limit": 100} if self.tracer is not None else None
@@ -118,16 +118,18 @@ class QueryGraphService:
         return graph
 
     def get_prompt_messages(
-        self, query: str, history: Sequence[BaseMessage], top_k: int, suffix: str = SQL_FUNCTIONS_SUFFIX
+        self, query: str, history: Sequence[BaseMessage], top_k: int, long_term_memory: list[Document], suffix: str = SQL_FUNCTIONS_SUFFIX
     ):
         local_time = time.localtime()
         formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
-        prefix = SQL_PREFIX + "\n Current Time {} \n".format(str(formatted_time))
-
-        if self.connection and self.connection.config and self.connection.config.connection_prompt:
-            prefix = prefix + "\n" + self.connection.config.connection_prompt
-
-        prefix = prefix.format(dialect=self.toolkit.dialect, top_k=top_k)
+        prefix = SQL_PREFIX
+        long_term_memory_text = "\n".join([f"\nContent: {doc.page_content}" for doc in long_term_memory])
+        prefix = prefix.format(
+            dialect=self.toolkit.dialect,
+            top_k=top_k, current_time=str(formatted_time),
+            context = long_term_memory_text,
+            connection_prompt = self.connection.config.connection_prompt
+            if self.connection.config and self.connection.config.connection_prompt else "")
 
         if not history:
             return [

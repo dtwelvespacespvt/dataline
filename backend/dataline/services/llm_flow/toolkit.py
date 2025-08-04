@@ -237,7 +237,7 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                         to_col_ref = f"'{relation.get('schema_name')}.{related_table_name}.{relation.get('column')}'"
                         metadata_line = f"-- Foreign Key: The {from_col_ref} column references {to_col_ref}. \n"
                         table_metadata += metadata_line
-        return self.db.get_table_info(self.table_names) + ("\nSelected Table Relations: \n" + table_metadata if table_metadata else table_metadata)
+        return  (f"\nSelected Table Relations: \n {table_metadata}" if table_metadata else table_metadata) + self.db.get_table_info(self.table_names)
 
     def get_response(  # type: ignore[misc]
         self,
@@ -508,7 +508,6 @@ class QueryGraphState(BaseModel):
     options: QueryOptions
     sql_toolkit: SQLDatabaseToolkit
     tool_executor: ToolExecutor
-    validation_query: Optional[str] = None
     query_validation: Optional[bool] = False
 
     class Config:

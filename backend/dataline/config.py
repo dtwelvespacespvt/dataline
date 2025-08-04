@@ -61,7 +61,8 @@ class Config(BaseSettings):
     def has_auth(self) -> bool:
         return bool(self.auth_username and self.auth_password)
 
-    default_conversation_history_limit: int = 5
+    default_conversation_history_limit: int = 1
     default_sql_row_limit: int = 200
+    default_memory_similarity_score: float = 0.5
 
 config = Config()

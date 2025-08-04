@@ -202,7 +202,7 @@ class QueryValidationNode(Node):
             streaming=True,
         )
         model = model.with_structured_output(ValidationResponseFormatter)
-        if state.validation_query:
+        if state.options.validation_query:
             validation_prompt = PROMPT_VALIDATION_QUERY + "\n " + "Validation Prompt: " + state.validation_query+ "User Message: " + last_message.content
         else:
             return state_update(query_validation=True)
