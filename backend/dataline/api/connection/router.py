@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from dataline.auth import admin_required
+from dataline.errors import ValidationError
 from dataline.models.connection.schema import (
     DB_SAMPLES,
     ConnectionOut,
@@ -120,19 +122,19 @@ async def get_connections(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
 ) -> SuccessResponse[ConnectionsOut]:
-    connections = await connection_service.get_connections(session)
+    connections = await connection_service.get_connections_by_user_uuid(session)
     return SuccessResponse(
         data=ConnectionsOut(
             connections=connections,
         ),
     )
 
-
 @router.delete("/connection/{connection_id}")
 async def delete_connection(
     connection_id: UUID,
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[None]:
     await connection_service.delete_connection(session, connection_id)
     return SuccessResponse()
@@ -145,11 +147,13 @@ async def update_connection(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[GetConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_updated")
-
-    updated_connection = await connection_service.update_connection(session, connection_id, req)
-
+    try:
+        updated_connection = await connection_service.update_connection(session, connection_id, req)
+    except ValidationError as e:
+        HTTPException(status_code=401, detail=e)
     # TODO: Simplify output structure here and on FE
     return SuccessResponse(
         data=GetConnectionOut(
@@ -165,6 +169,7 @@ async def generate_descriptions(
         session: Annotated[AsyncSession, Depends(get_session)],
         connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
         background_tasks: BackgroundTasks,
+        _:None = Depends(admin_required)
 ) -> SuccessResponse[GetConnectionOut]:
     background_tasks.add_task(posthog_capture, "description_updated")
 
@@ -185,6 +190,7 @@ async def generate_relationships(
         session: Annotated[AsyncSession, Depends(get_session)],
         connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
         background_tasks: BackgroundTasks,
+        _:None = Depends(admin_required)
 ) -> SuccessResponse[GetConnectionOut]:
     background_tasks.add_task(posthog_capture, "relationships_updated")
 
@@ -207,7 +213,6 @@ async def generate_relationships_per_column(
         column_type: str,
         session: Annotated[AsyncSession, Depends(get_session)],
         connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
-        background_tasks: BackgroundTasks,
 ) -> SuccessListResponse[RelationshipOut]:
     background_tasks.add_task(posthog_capture, "get_relationship_per_column")
 

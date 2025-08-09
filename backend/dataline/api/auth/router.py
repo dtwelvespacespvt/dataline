@@ -1,10 +1,22 @@
 import base64
+from fastapi.params import Depends
+from google.oauth2 import id_token
+from google.auth.transport import requests
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Response, Body
+from fastapi import APIRouter, BackgroundTasks, Response, Body, HTTPException
+from logging import getLogger
+from jose import jwt
+from pydantic import BaseModel
 
+from dataline.config import config
+from dataline.repositories.base import AsyncSession, get_session
 from dataline.auth import validate_credentials
+from dataline.repositories.user import UserCreate
+from dataline.services.user import UserService
 from dataline.utils.posthog import posthog_capture
+
+logger = getLogger()
 
 router = APIRouter(
     prefix="/auth",
@@ -12,6 +24,9 @@ router = APIRouter(
     responses={401: {"description": "Incorrect username or password"}},
 )
 
+
+class GoogleCredentials(BaseModel):
+    credential:str
 
 @router.post("/login")
 async def login(
@@ -40,3 +55,23 @@ async def logout(response: Response) -> Response:
 @router.head("/login")
 async def login_head() -> Response:
     return Response(status_code=200)
+
+@router.post("/google")
+async def google_login(token:GoogleCredentials, response: Response, session:Annotated[AsyncSession, Depends(get_session)], userRepo:Annotated[UserService, Depends(UserService)])-> Response:
+    try:
+        user = id_token.verify_oauth2_token(token.credential, requests.Request(), config.GOOGLE_CLIENT_ID)
+        domain = user.get('email','').split('@')[-1]
+        if config.ALLOWED_EMAIL_ORIGINS and domain not in config.ALLOWED_EMAIL_ORIGINS:
+            raise HTTPException(status_code=401, detail="Domain is not whitelisted")
+
+        newuser = UserCreate(name=user.get('name'), avatar_url = user.get('picture', ''), email = user.get('email'))
+        created_user = await userRepo.create_user(session, newuser)
+        app_token_data = {"email": created_user.email, "role": created_user.role, "name": created_user.name, "user_id": str(created_user.id)}
+        app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+        response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
+    except ValueError as e:
+        logger.exception("Invalid Google Token: {}".format(e))
+        raise HTTPException(status_code=401, detail="Invalid Google Token")
+
+    response.status_code = 200
+    return response

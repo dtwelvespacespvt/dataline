@@ -25,7 +25,7 @@ export const ProfileDropdown = ({ topRight }: { topRight?: boolean }) => {
   });
   const { data: hasAuthEnabled } = useQuery(hasAuthQuery());
 
-  const userNavigation = [{ name: "Settings", href: "/user" }];
+  const userNavigation = [{ name: "Settings", href: "/user" }, {name: "Admin", href: "/admin"}];
 
   return (
     <>

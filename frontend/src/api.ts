@@ -461,6 +461,16 @@ const login = async (username: string, password: string) => {
   return response;
 };
 
+export type GoogleLoginResponse = ApiResponse<void>;
+const googleLogin = async (credential: string) => {
+  const response = await backendApi<GoogleLoginResponse>({
+    method: "POST",
+    url: "/auth/google",
+    data: { credential },
+  });
+  return response;
+};
+
 export type LogoutResponse = ApiResponse<void>;
 const logout = async () => {
   const response = await backendApi<LogoutResponse>({
@@ -516,6 +526,21 @@ const getDictionary = async (
   ).data;
 };
 
+export type GetAllUsers = ApiResponse<types.IUserInfo[]>;
+const getAllUsers = async (): Promise<GetAllUsers> => {
+  const response = await backendApi<GetAllUsers>({ url: "/settings/users" });
+  return response.data;
+}
+
+export type BulkUpdateUsers = ApiResponse<void>;
+const bulkUpdateUsers = async (users: types.IUserInfo[]): Promise<BulkUpdateUsers> => {
+  return (await backendApi<BulkUpdateUsers>({
+    url: "/settings/users",
+    method: "patch",
+    data: users,  // Send users array directly, not wrapped in object
+  })).data;
+}
+
 export const api = {
   healthcheck,
   hasAuth,
@@ -533,6 +558,7 @@ export const api = {
   listConversations,
   generateConversationTitle,
   login,
+  googleLogin,
   logout,
   createConversation,
   updateConversation,
@@ -551,5 +577,7 @@ export const api = {
   getExportDataUrl,
   getPossibleValues,
   getRelationships,
-  getDictionary
+  getDictionary,
+  getAllUsers,
+  bulkUpdateUsers,
 };

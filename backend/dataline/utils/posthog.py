@@ -1,5 +1,6 @@
 import logging
 
+from dataline.models.user.enums import UserRoles
 from posthog import Posthog
 from posthog.client import Client as PosthogClient
 
@@ -28,7 +29,7 @@ class PosthogAnalytics:
     async def __aenter__(self) -> tuple[PosthogClient, UserModel | None]:
         async with SessionCreator.begin() as session:
             user_repo = UserRepository()
-            user_info = await user_repo.get_one_or_none(session)
+            user_info = await user_repo.get_one_by_role(session, UserRoles.ADMIN.value)
             is_enabled = (
                 user_info is not None
                 and user_info.analytics_enabled

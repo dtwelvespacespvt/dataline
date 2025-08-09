@@ -19,6 +19,7 @@ import { Route as LandingFaqImport } from './routes/_landing/faq'
 import { Route as LandingBlogImport } from './routes/_landing/blog'
 import { Route as LandingAboutImport } from './routes/_landing/about'
 import { Route as AppUserImport } from './routes/_app/user'
+import { Route as AppAdminImport } from './routes/_app/admin'
 import { Route as AppConnectionNewImport } from './routes/_app/connection/new'
 import { Route as AppConnectionConnectionIdImport } from './routes/_app/connection/$connectionId'
 import { Route as AppChatConversationIdImport } from './routes/_app/chat/$conversationId'
@@ -65,6 +66,11 @@ const AppUserRoute = AppUserImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 
+const AppAdminRoute = AppAdminImport.update({
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+
 const AppConnectionNewRoute = AppConnectionNewImport.update({
   path: '/connection/new',
   getParentRoute: () => AppRoute,
@@ -104,6 +110,13 @@ declare module '@tanstack/react-router' {
       fullPath: ''
       preLoaderRoute: typeof LandingImport
       parentRoute: typeof rootRoute
+    }
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminImport
+      parentRoute: typeof AppImport
     }
     '/_app/user': {
       id: '/_app/user'
@@ -169,6 +182,7 @@ declare module '@tanstack/react-router' {
 export const routeTree = rootRoute.addChildren({
   IndexRoute,
   AppRoute: AppRoute.addChildren({
+    AppAdminRoute,
     AppUserRoute,
     AppChatConversationIdRoute,
     AppConnectionConnectionIdRoute,
@@ -201,6 +215,7 @@ export const routeTree = rootRoute.addChildren({
     "/_app": {
       "filePath": "_app.tsx",
       "children": [
+        "/_app/admin",
         "/_app/user",
         "/_app/chat/$conversationId",
         "/_app/connection/$connectionId",
@@ -215,6 +230,10 @@ export const routeTree = rootRoute.addChildren({
         "/_landing/faq",
         "/_landing/privacy"
       ]
+    },
+    "/_app/admin": {
+      "filePath": "_app/admin.tsx",
+      "parent": "/_app"
     },
     "/_app/user": {
       "filePath": "_app/user.tsx",

@@ -57,11 +57,16 @@ class Config(BaseSettings):
         "http://127.0.0.1:5173"  # comma separated list of origins
     )
 
+    default_conversation_history_limit: int = 5
+
+    default_sql_row_limit: int = 200
+    JWT_SECRET: str|None= None
+    JWT_ALGORITHM: str = "HS256"
+    GOOGLE_CLIENT_ID: str|None = None
+    ALLOWED_EMAIL_ORIGINS: list[str] = []
+    AUTH_TYPE: str = 'NONE'
     @property
     def has_auth(self) -> bool:
-        return bool(self.auth_username and self.auth_password)
-
-    default_conversation_history_limit: int = 5
-    default_sql_row_limit: int = 200
+        return bool(self.AUTH_TYPE != 'NONE')
 
 config = Config()

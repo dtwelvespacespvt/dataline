@@ -16,6 +16,7 @@
     "@headlessui/react": "^2.1.2",
     "@heroicons/react": "^2.0.17",
     "@microsoft/fetch-event-source": "^2.0.1",
+    "@react-oauth/google": "^0.12.2",
     "@supabase/auth-ui-react": "^0.4.5",
     "@supabase/auth-ui-shared": "^0.1.7",
     "@supabase/supabase-js": "^2.38.0",
