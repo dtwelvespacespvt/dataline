@@ -44,7 +44,7 @@ class ConversationRepository(BaseRepository[ConversationModel, ConversationCreat
         if limit:
             query = select(ConversationModel).options(
                 joinedload(ConversationModel.messages).joinedload(MessageModel.results)
-            ).where(ConversationModel.user_id == user_id).offset(skip).limit(limit)
+            ).where(ConversationModel.user_id == user_id).order_by(ConversationModel.created_at.desc()).offset(skip).limit(limit)
 
         else:
             query = select(ConversationModel).options(
@@ -56,7 +56,7 @@ class ConversationRepository(BaseRepository[ConversationModel, ConversationCreat
         if limit:
             query = select(ConversationModel).options(
                 joinedload(ConversationModel.messages).joinedload(MessageModel.results)
-            ).offset(skip).limit(limit)
+            ).order_by(ConversationModel.created_at.desc()).offset(skip).limit(limit)
         else:
             query = select(ConversationModel).options(
             joinedload(ConversationModel.messages).joinedload(MessageModel.results)

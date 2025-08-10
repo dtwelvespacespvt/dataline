@@ -148,7 +148,7 @@ export const Conversation = () => {
   }
 
   return (
-    <div className="bg-gray-900 w-full h-[calc(100%-4rem)] relative flex flex-col">
+    <div className="bg-gray-900 w-full h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] relative flex flex-col">
       <Transition
         key={params.conversationId}
         enter="transition duration-200"
@@ -157,7 +157,7 @@ export const Conversation = () => {
         show={true}
         appear={true}
       >
-        <div className="overflow-y-auto pb-36 bg-gray-900">
+        <div className="overflow-y-auto pb-36 pt-20 lg:pt-4 bg-gray-900">
           {messages.map((message) => (
             <Message
               key={(params.conversationId as string) + message.message.id}
@@ -196,7 +196,7 @@ export const Conversation = () => {
 
       <div ref={messageListRef}></div>
 
-      <div className="fixed bottom-0 left-0 lg:left-72 right-0 flex flex-col items-center justify-center backdrop-blur-md pt-0">
+      <div className="fixed bottom-0 left-0 lg:left-72 right-0 flex flex-col items-center justify-center backdrop-blur-md pt-2 pb-2">
         {messages.length === 0 && !currentConversationIsQuerying && (
           <div className="w-full md:max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-2 justify-between px-2 sm:px-3 my-4">
             {templateMessages.map((template) => (

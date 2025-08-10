@@ -113,9 +113,8 @@ class ConversationService:
         connection_id: UUID,
         name: str,
     ) -> ConversationOut:
-        user = await self.auth_manager.get_user_info()
         conversation = await self.conversation_repo.create(
-            session, ConversationCreate(connection_id=connection_id, name=name, user_id=user.id)
+            session, ConversationCreate(connection_id=connection_id, name=name, user_id=await self.auth_manager.get_user_id())
         )
         return ConversationOut.model_validate(conversation)
 
@@ -133,8 +132,7 @@ class ConversationService:
         if self.auth_manager.is_single_user_mode():
             conversations = await self.conversation_repo.list_with_messages_with_results(session, skip, limit)
         else:
-            user_info = await self.auth_manager.get_user_info()
-            conversations = await self.conversation_repo.list_with_messages_with_results_user(session, user_info.id, skip, limit)
+            conversations = await self.conversation_repo.list_with_messages_with_results_user(session, await self.auth_manager.get_user_id(), skip, limit)
         return [
             ConversationWithMessagesWithResultsOut.from_conversation(conversation) for conversation in conversations
         ]
@@ -190,8 +188,7 @@ class ConversationService:
         # Get conversation, connection, user settings
         conversation = await self.get_conversation(session, conversation_id=conversation_id)
         connection = await self.connection_service.get_connection(session, connection_id=conversation.connection_id)
-        user = await self.auth_manager.get_user_info()
-        user_with_model_details = await self.settings_service.get_model_details_new(session,user.id)
+        user_with_model_details = await self.settings_service.get_model_details_new(session, await self.auth_manager.get_user_id())
 
         # Create query graph
         query_graph = QueryGraphService(connection=connection)
@@ -305,8 +302,7 @@ class ConversationService:
         """
         Get the last 10 messages of a conversation (AI, Human, and System)
         """
-        user = await self.auth_manager.get_user_info()
-        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, conversation_id, user.id,  n=config.default_conversation_history_limit)
+        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, conversation_id, await self.auth_manager.get_user_id(),  n=config.default_conversation_history_limit)
         base_messages = []
         for message in reversed(messages):  # Reverse to get the oldest messages first (chat format)
             if message.role == BaseMessageType.HUMAN.value:

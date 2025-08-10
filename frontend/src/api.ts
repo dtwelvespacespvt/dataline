@@ -238,8 +238,11 @@ const deleteConversation = async (conversationId: string) => {
 export type ListConversations = ApiResponse<
   types.IConversationWithMessagesWithResultsOut[]
 >;
-const listConversations = async (): Promise<ListConversations> => {
-  return (await backendApi<ListConversations>({ url: "/conversations" })).data;
+const listConversations = async (params?: { skip?: number; limit?: number }): Promise<ListConversations> => {
+  return (await backendApi<ListConversations>({ 
+    url: "/conversations",
+    params 
+  })).data;
 };
 
 export type GetMessagesResponse = ApiResponse<types.IMessageWithResultsOut[]>;
