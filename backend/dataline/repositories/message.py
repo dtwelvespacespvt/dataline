@@ -1,13 +1,13 @@
 from typing import Sequence, Type
 from uuid import UUID
 
-from sqlalchemy import select, case
+from sqlalchemy import select, case, update
 from sqlalchemy.orm import contains_eager
 
 from dataline.models.conversation.model import ConversationModel
 from dataline.models.llm_flow.enums import QueryResultType
 from dataline.models.message.model import MessageModel
-from dataline.models.message.schema import MessageCreate, MessageUpdate
+from dataline.models.message.schema import MessageCreate, MessageUpdate, MessageFeedBack
 from dataline.models.result.model import ResultModel
 from dataline.repositories.base import AsyncSession, BaseRepository
 
@@ -37,6 +37,14 @@ class MessageRepository(BaseRepository[MessageModel, MessageCreate, MessageUpdat
             .limit(n)
         )
         return await self.list_unique(session, query=query)
+
+    async def update_feedback(self,session: AsyncSession, message_feedback:MessageFeedBack):
+        query = (
+            update(MessageModel)
+            .where(MessageModel.id == message_feedback.message_id)
+            .values(is_positive=message_feedback.is_positive)
+        )
+        return await session.execute(query)
 
     async def get_by_connection_and_user_with_sql_results(self, session: AsyncSession, connection_id: UUID, conversation_id:UUID, user_id:UUID, n: int = 10) -> Sequence[MessageModel]:
         latest_conversations_subquery = (

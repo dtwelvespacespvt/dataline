@@ -763,11 +763,13 @@ class ConnectionService:
         connection = await self.connection_repo.get_by_uuid(session, connection_id)
 
         the_dict = defaultdict(list)
-        for gloss in connection.glossary:
-            the_dict[gloss].append("glossary")
+        if connection.glossary:
+            for gloss in connection.glossary:
+                the_dict[gloss].append("glossary")
 
-        for unique_key in connection.unique_value_dict:
-            the_dict[unique_key].append("uniqueKey")
+        if connection.unique_value_dict:
+            for unique_key in connection.unique_value_dict:
+                the_dict[unique_key].append("uniqueKey")
 
         return the_dict
 

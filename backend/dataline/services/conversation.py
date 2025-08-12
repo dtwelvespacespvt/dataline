@@ -27,7 +27,7 @@ from dataline.models.message.schema import (
     MessageOptions,
     MessageOut,
     MessageWithResultsOut,
-    QueryOut,
+    QueryOut, MessageFeedBack,
 )
 from dataline.models.result.schema import ResultUpdate
 from dataline.repositories.base import AsyncSession
@@ -321,3 +321,7 @@ class ConversationService:
                 logger.exception(Exception(f"Unknown message role: {message.role}"))
 
         return base_messages
+
+    async def update_feedback(self, session:AsyncSession, message_feedback:MessageFeedBack)->None:
+        return await self.message_repo.update_feedback(session,message_feedback)
+

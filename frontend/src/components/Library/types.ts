@@ -82,6 +82,7 @@ export interface IMessageOut {
   content: string;
   role: Role;
   created_at?: string;
+  is_positive?: boolean;
   options?: IMessageOptions;
 }
 
@@ -174,6 +175,11 @@ export interface IUserInfo {
   config?: {
     connections?: string[];
   } | null;
+}
+
+export interface MessageFeedbackUpdate {
+  message_id: string;
+  is_positive: boolean;
 }
 
 export interface PossibleValuesResult {
