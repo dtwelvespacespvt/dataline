@@ -8,9 +8,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.security.base import SecurityBase
 from fastapi.security.utils import get_authorization_scheme_param
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
-from dataline.models.user.model import UserModel
 from dataline.repositories.base import AsyncSession, get_session
 from starlette.requests import Request
 from starlette.status import HTTP_401_UNAUTHORIZED
@@ -74,7 +73,7 @@ class HTTPBearerCustomized(SecurityBase):
 
 
 
-security = HTTPBearerCustomized()
+security = HTTPBearerCustomized() if config.has_auth else None
 
 def validate_credentials(username: str, password: str) -> bool:
     correct_username = secrets.compare_digest(username, str(config.auth_username))
@@ -110,11 +109,9 @@ class AuthManager:
     def __call__(self):
         return self.get_user_info()
 
-    def is_single_user_mode(self) -> bool:
-        return self.user_info.is_single_user or not config.has_auth
 
     def is_admin(self) -> bool:
-        return self.user_info.role == UserRoles.ADMIN
+        return self.user_info.role == UserRoles.ADMIN or not config.has_auth
 
     async def get_user_info(self) -> UserInfo | None:
         if self.user_info.is_single_user and not self.user_info.id:
