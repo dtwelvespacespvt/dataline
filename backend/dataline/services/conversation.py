@@ -1,15 +1,11 @@
 import logging
 import re
 from typing import AsyncGenerator, cast, Dict, Annotated
-from collections import defaultdict
 from uuid import UUID
 
 from fastapi import Depends
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from openai._exceptions import APIError
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_openai import OpenAIEmbeddings
-from langchain.schema import Document
 
 from dataline.config import config
 from dataline.errors import UserFacingError
@@ -55,7 +51,6 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
 )
 from dataline.services.settings import SettingsService
 from dataline.utils.utils import stream_event_str
-from tomlkit import document
 
 from dataline.auth import AuthManager, get_auth_manager
 
@@ -113,10 +108,10 @@ class ConversationService:
             raise UserFacingError(e)
 
     async def create_conversation(
-            self,
-            session: AsyncSession,
-            connection_id: UUID,
-            name: str,
+        self,
+        session: AsyncSession,
+        connection_id: UUID,
+        name: str,
     ) -> ConversationOut:
         conversation = await self.conversation_repo.create(
             session, ConversationCreate(connection_id=connection_id, name=name, user_id=await self.auth_manager.get_user_id())
@@ -128,7 +123,7 @@ class ConversationService:
         return ConversationOut.model_validate(conversation)
 
     async def get_conversation_with_messages(
-            self, session: AsyncSession, conversation_id: UUID
+        self, session: AsyncSession, conversation_id: UUID
     ) -> ConversationWithMessagesWithResultsOut:
         conversation = await self.conversation_repo.get_with_messages_with_results(session, conversation_id)
         return ConversationWithMessagesWithResultsOut.from_conversation(conversation)
@@ -146,7 +141,7 @@ class ConversationService:
         await self.conversation_repo.delete_by_uuid(session, record_id=conversation_id)
 
     async def update_conversation_name(
-            self, session: AsyncSession, conversation_id: UUID, name: str
+        self, session: AsyncSession, conversation_id: UUID, name: str
     ) -> ConversationOut:
         conversation = await self.conversation_repo.update_by_uuid(
             session, conversation_id, ConversationUpdate(name=name)
@@ -183,11 +178,11 @@ class ConversationService:
         return query
 
     async def query(
-            self,
-            session: AsyncSession,
-            conversation_id: UUID,
-            query: str,
-            secure_data: bool = True,
+        self,
+        session: AsyncSession,
+        conversation_id: UUID,
+        query: str,
+        secure_data: bool = True,
     ) -> AsyncGenerator[str, None]:
 
         # Get conversation, connection, user settings
@@ -208,18 +203,15 @@ class ConversationService:
         if connection.unique_value_dict is not None:
             cleaned_query = self._add_reverse_look_up_util(connection.unique_value_dict, cleaned_query)
         async for chunk in (query_graph.query(
-                query=cleaned_query,
-                options=QueryOptions(
-                    secure_data=secure_data,
-                    openai_api_key=user_with_model_details.openai_api_key.get_secret_value(),  # type: ignore
-                    openai_base_url=user_with_model_details.openai_base_url,
-                    langsmith_api_key=langsmith_api_key.get_secret_value() if langsmith_api_key else None,  # type: ignore
-                    llm_model=user_with_model_details.preferred_openai_model,
-                    validation_query = connection.config.validation_query if connection.config and connection.config.validation_query else None,
-                    query_validation =  False
-                ),
-                history=history,
-                long_term_memory= await self.get_long_term_memory(session, query, conversation.connection_id, conversation.id, user_with_model_details.openai_api_key.get_secret_value())
+            query=cleaned_query,
+            options=QueryOptions(
+                secure_data=secure_data,
+                openai_api_key=user_with_model_details.openai_api_key.get_secret_value(),  # type: ignore
+                openai_base_url=user_with_model_details.openai_base_url,
+                langsmith_api_key=langsmith_api_key.get_secret_value() if langsmith_api_key else None,  # type: ignore
+                llm_model=user_with_model_details.preferred_openai_model,
+            ),
+            history=history,
         )):
             (chunk_messages, chunk_results) = chunk
             if chunk_messages is not None:
@@ -329,47 +321,3 @@ class ConversationService:
                 logger.exception(Exception(f"Unknown message role: {message.role}"))
 
         return base_messages
-
-    async def get_long_term_memory(self, session: AsyncSession, query: str, connection_id: UUID, conversation_id: UUID,
-                                   openai_api_key: str):
-        """
-        Retrieves relevant long-term memory, weighting SQL results more heavily.
-        """
-        user = await self.user_repo.get_one_or_none(session)
-        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(
-            session, connection_id, conversation_id, user.id, n=10
-        )
-
-        if not messages:
-            return []
-
-        conversation_doc = defaultdict(list)
-
-        for message in reversed(messages):
-            conversation_doc[conversation_id].append(message)
-
-        docs = []
-        for _, conversations in conversation_doc.items():
-            content = ""
-            for message in conversations:
-                if message.role == BaseMessageType.HUMAN.value:
-                    docs.append(Document(page_content=content,metadata={"user_id": user.id}))
-                    content = ""
-                content += f'{message.role}:{message.content} \n'
-                if message.results:
-                    sqls = [
-                        SQLQueryStringResultContent.model_validate_json(result.content).sql
-                        for result in message.results
-                    ]
-                    content += f"Generated SQL: {', '.join(sqls)} \n"
-            if content:
-                docs.append(Document(page_content=content,metadata={"user_id": user.id}))
-
-        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key, model = config.default_embedding_model)
-
-        if not docs:
-            return []
-
-        chat_db = InMemoryVectorStore.from_documents(docs, embeddings)
-        chat_retriever = chat_db.similarity_search_with_score(query,k=2)
-        return [document for document, score in chat_retriever if config.default_memory_similarity_score<= score]

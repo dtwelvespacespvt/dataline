@@ -1,6 +1,6 @@
 import abc
 from datetime import datetime
-from typing import Any, ClassVar, List, Self, Optional
+from typing import Any, ClassVar, List, Self
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, SecretStr
@@ -18,7 +18,6 @@ class QueryOptions(BaseModel):
     langsmith_api_key: SecretStr | None = None
     llm_model: str
     secure_data: bool = False
-    validation_query: Optional[str] = None
 
 
 class QueryResultSchema(BaseModel, abc.ABC):
