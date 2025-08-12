@@ -84,7 +84,7 @@ class SettingsService:
         return media_instances[0] if media_instances else None
 
     async def get_avatar_by_url(self, session: AsyncSession):
-        if not self.auth_manager.get_user_id():
+        if not await self.auth_manager.get_user_id():
             return await self.get_avatar(session)
         user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
         if user_info and user_info.avatar_url:

@@ -114,7 +114,7 @@ class AuthManager:
         return self.user_info.role == UserRoles.ADMIN or not config.has_auth
 
     async def get_user_info(self) -> UserInfo | None:
-        if self.user_info.is_single_user and not self.user_info.id:
+        if (self.user_info.is_single_user and not self.user_info.id) or not config.has_auth:
             return await self.user_repo.get_one_by_role(self.session, UserRoles.ADMIN.value)
         return self.user_info
 
