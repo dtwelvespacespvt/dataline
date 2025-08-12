@@ -11,7 +11,7 @@ from dataline.api.connection.router import router as connection_router
 from dataline.api.conversation.router import router as conversation_router
 from dataline.api.result.router import router as result_router
 from dataline.api.settings.router import router as settings_router
-from dataline.auth import authenticate
+from dataline.auth import get_auth_manager
 from dataline.config import config
 from dataline.errors import UserFacingError, ValidationError
 from dataline.repositories.base import NotFoundError, NotUniqueError
@@ -49,7 +49,7 @@ class App(fastapi.FastAPI):
 
         common_dependencies = []
         if config.has_auth:
-            common_dependencies = [Depends(authenticate)]
+            common_dependencies = [Depends(get_auth_manager)]
 
             # Add route for login
             self.include_router(auth_router)

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import logo from "@/assets/images/logo_rounded_sm.png";
 import { useLogin } from "@/hooks/auth";
+import GoogleAuth from "./GoogleAuth";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -82,6 +83,8 @@ export default function Login() {
               </button>
             </div>
           </form>
+
+          <GoogleAuth />
 
           <p className="mt-10 text-center text-sm text-gray-400">
             Don't have access?{" "}

@@ -1,9 +1,12 @@
-from sqlalchemy import Boolean, String
+from typing import TypedDict, List
+from sqlalchemy import Boolean, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import true
 
 from dataline.models.base import DBModel, UUIDMixin
 
+class UserConfig(TypedDict):
+    connections: List[str]
 
 class UserModel(DBModel, UUIDMixin, kw_only=True):
     __tablename__ = "user"
@@ -14,5 +17,8 @@ class UserModel(DBModel, UUIDMixin, kw_only=True):
     sentry_enabled: Mapped[bool] = mapped_column("sentry_enabled", Boolean, server_default=true())
     analytics_enabled: Mapped[bool] = mapped_column("analytics_enabled", Boolean, server_default=true())
     openai_base_url: Mapped[str | None] = mapped_column("openai_base_url", String, nullable=True)
-
+    role: Mapped[str|None] = mapped_column("role", String, nullable=True)
+    avatar_url: Mapped[str|None] = mapped_column('avatar_url', String, nullable=True)
+    email: Mapped[str|None] = mapped_column('email', String, nullable=True)
+    config: Mapped[UserConfig|None] = mapped_column('config', JSON, nullable=True)
     conversations: Mapped[list["ConversationModel"]] = relationship("ConversationModel", back_populates="user")

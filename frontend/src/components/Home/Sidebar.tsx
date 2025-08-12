@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogPanel,
@@ -21,7 +21,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   useDeleteConversation,
   useGetConnections,
-  useGetConversations,
+  useGetConversationsInfinite,
   useUpdateConversation,
 } from "@/hooks";
 import {
@@ -53,13 +53,22 @@ function classNames(...classes: string[]) {
 export const Sidebar = () => {
   const params = useParams({ strict: false });
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { data: conversationsData } = useGetConversations();
+  const { 
+    data: conversationsInfiniteData, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage 
+  } = useGetConversationsInfinite();
   const { data: connectionsData } = useGetConnections();
   const { mutate: deleteConversation } = useDeleteConversation({
     onSuccess() {
       navigate({ to: "/" });
     },
   });
+
+  const conversationsData = useMemo(() => {
+    return conversationsInfiniteData?.pages.flatMap(page => page) || [];
+  }, [conversationsInfiniteData]);
 
   const conversations = useMemo<
     (IConversationWithMessagesWithResultsOut & {
@@ -76,6 +85,23 @@ export const Sidebar = () => {
     }
     return [];
   }, [conversationsData, connectionsData?.connections]);
+
+  const conversationListRef = useRef<HTMLDivElement>(null);
+  const mobileConversationListRef = useRef<HTMLUListElement>(null);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 100 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleMobileScroll = useCallback((e: React.UIEvent<HTMLUListElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 100 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const [currentConversation, setCurrentConversation] =
     useState<IConversation | null>(null);
@@ -206,7 +232,12 @@ export const Sidebar = () => {
                   <nav className="flex flex-1 flex-col">
                     <ul role="list" className="flex flex-1 flex-col gap-y-7">
                       <li>
-                        <ul role="list" className="-mx-2 space-y-1">
+                        <ul 
+                          role="list" 
+                          className="-mx-2 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]"
+                          onScroll={handleMobileScroll}
+                          ref={mobileConversationListRef}
+                        >
                           <Link
                             to="/"
                             className="py-3 px-2 rounded-md flex justify-start items-center border border-gray-600 text-gray-200 hover:bg-gray-800 transition-all duration-150 cursor-pointer"
@@ -263,6 +294,12 @@ export const Sidebar = () => {
                               </Link>
                             </li>
                           ))}
+                          {/* Loading indicator for mobile */}
+                          {isFetchingNextPage && (
+                            <li className="flex justify-center py-2">
+                              <div className="text-gray-400 text-sm">Loading more...</div>
+                            </li>
+                          )}
                         </ul>
                       </li>
 
@@ -294,7 +331,11 @@ export const Sidebar = () => {
         </Link>
         {/* Chat list, flex-1 to take as much space as possible */}
         <nav className="flex flex-1 flex-col gap-y-4 mx-2 overflow-auto">
-          <div className="overflow-y-auto">
+          <div 
+            className="overflow-y-auto"
+            onScroll={handleScroll}
+            ref={conversationListRef}
+          >
             <ul role="list" className="space-y-1">
               {conversations.map((conversation) => (
                 <li key={conversation.id}>
@@ -410,6 +451,11 @@ export const Sidebar = () => {
                   )}
                 </li>
               ))}
+              {isFetchingNextPage && (
+                <li className="flex justify-center py-2">
+                  <div className="text-gray-400 text-sm">Loading more...</div>
+                </li>
+              )}
             </ul>
           </div>
           {/* Section for saved queries and dashboards */}

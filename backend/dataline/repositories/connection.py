@@ -1,9 +1,10 @@
 from enum import Enum
-from typing import Type, Dict
+from typing import Type, Dict, List
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
+from uuid import UUID
 from dataline.models.connection.model import ConnectionModel
 from dataline.repositories.base import AsyncSession, BaseRepository
 from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
@@ -62,3 +63,8 @@ class ConnectionRepository(BaseRepository[ConnectionModel, ConnectionCreate, Con
         """
         query = select(self.model).filter_by(dsn=dsn)
         return await self.get(session, query)
+
+    async def get_all_by_uuids(self, session:AsyncSession, connection_uuids: List[UUID]):
+
+        query = select(self.model).where(self.model.id.in_(connection_uuids))
+        return await self.list(session, query)

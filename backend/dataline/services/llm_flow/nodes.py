@@ -61,7 +61,7 @@ class CallModelNode(Node):
             model=state.options.llm_model,
             base_url=state.options.openai_base_url,
             api_key=state.options.openai_api_key,
-            temperature=0,
+            temperature=1,
             streaming=True,
         )
         sql_tools = state.sql_toolkit.get_tools()
@@ -198,7 +198,7 @@ class QueryValidationNode(Node):
             model=state.options.llm_model,
             base_url=state.options.openai_base_url,
             api_key=state.options.openai_api_key,
-            temperature=0,
+            temperature=1,
             streaming=True,
         )
         model = model.with_structured_output(ValidationResponseFormatter)

@@ -5,6 +5,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  useInfiniteQuery,
 } from "@tanstack/react-query";
 import { getBackendStatusQuery } from "@/hooks/settings";
 import { useEffect } from "react";
@@ -21,6 +22,39 @@ export function useGetConversations() {
     queryFn: async () => (await api.listConversations()).data,
     enabled: isSuccess,
   });
+  const isError = result.isError;
+
+  useEffect(() => {
+    if (isError) {
+      enqueueSnackbar({
+        variant: "error",
+        message: "Error loading conversations",
+      });
+    }
+  }, [isError]);
+
+  return result;
+}
+
+export function useGetConversationsInfinite(limit: number = 14) {
+  const { isSuccess } = useQuery(getBackendStatusQuery());
+  const result = useInfiniteQuery({
+    queryKey: [...CONVERSATIONS_QUERY_KEY, "infinite"],
+    queryFn: async ({ pageParam = 0 }) => {
+      const response = await api.listConversations({ skip: pageParam, limit });
+      return response.data;
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const totalFetched = allPages.reduce((total, page) => total + page.length, 0);
+      if (lastPage.length < limit) {
+        return null;
+      }
+      return totalFetched;
+    },
+    enabled: isSuccess,
+    initialPageParam: 0,
+  });
+
   const isError = result.isError;
 
   useEffect(() => {
