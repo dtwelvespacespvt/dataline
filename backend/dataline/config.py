@@ -57,6 +57,7 @@ class Config(BaseSettings):
         "http://127.0.0.1:5173"  # comma separated list of origins
     )
 
+
     default_conversation_history_limit: int = 5
 
     default_sql_row_limit: int = 200
@@ -68,5 +69,11 @@ class Config(BaseSettings):
     @property
     def has_auth(self) -> bool:
         return bool(self.AUTH_TYPE != 'NONE')
+
+    default_conversation_history_limit: int = 1
+    default_sql_row_limit: int = 200
+    default_memory_similarity_score: float = 0.5
+    default_embedding_model:str = "text-embedding-3-small"
+
 
 config = Config()

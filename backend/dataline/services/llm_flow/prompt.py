@@ -46,6 +46,16 @@ DO NOT just copy the results as the answer. The user can see the results themsel
 You can just talk about the results instead.
 
 If the question does not seem related to the database, just return "I don't know" as the answer.
+
+{connection_prompt}
+
+Current Time {current_time}
+
+---
+Retrieved Context from Memory:
+{context}
+---
+
 """
 
 SQL_SUFFIX = """Begin!
