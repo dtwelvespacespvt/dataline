@@ -129,10 +129,7 @@ class ConversationService:
         return ConversationWithMessagesWithResultsOut.from_conversation(conversation)
 
     async def get_conversations(self, session: AsyncSession, skip:int=0, limit=10) -> list[ConversationWithMessagesWithResultsOut]:
-        if self.auth_manager.is_single_user_mode():
-            conversations = await self.conversation_repo.list_with_messages_with_results(session, skip, limit)
-        else:
-            conversations = await self.conversation_repo.list_with_messages_with_results_user(session, await self.auth_manager.get_user_id(), skip, limit)
+        conversations = await self.conversation_repo.list_with_messages_with_results_user(session, await self.auth_manager.get_user_id(), skip, limit)
         return [
             ConversationWithMessagesWithResultsOut.from_conversation(conversation) for conversation in conversations
         ]

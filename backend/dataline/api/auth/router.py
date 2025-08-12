@@ -10,6 +10,7 @@ from jose import jwt
 from pydantic import BaseModel
 
 from dataline.config import config
+from dataline.models.user.enums import UserRoles
 from dataline.repositories.base import AsyncSession, get_session
 from dataline.auth import validate_credentials
 from dataline.repositories.user import UserCreate
@@ -41,7 +42,9 @@ async def login(
     ascii_encoded = f"{username}:{password}".encode("ascii")
     token = base64.b64encode(ascii_encoded).decode("utf-8")
     response.status_code = 200
-    response.set_cookie(key="Authorization", value=f"Basic {token}", secure=True, httponly=True)
+    app_token_data = {"role": UserRoles.ADMIN.value, "name": UserRoles.ADMIN.value, "is_single_user": True}
+    app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+    response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
     return response
 
 
@@ -66,7 +69,7 @@ async def google_login(token:GoogleCredentials, response: Response, session:Anno
 
         newuser = UserCreate(name=user.get('name'), avatar_url = user.get('picture', ''), email = user.get('email'))
         created_user = await userRepo.create_user(session, newuser)
-        app_token_data = {"email": created_user.email, "role": created_user.role, "name": created_user.name, "user_id": str(created_user.id)}
+        app_token_data = {"role": created_user.role, "name": created_user.name, "user_id": str(created_user.id), "is_single_user": False}
         app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
         response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
     except ValueError as e:

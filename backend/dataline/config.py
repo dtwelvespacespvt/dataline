@@ -64,9 +64,8 @@ class Config(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     GOOGLE_CLIENT_ID: str|None = None
     ALLOWED_EMAIL_ORIGINS: list[str] = []
-    AUTH_TYPE: str = 'NONE'
     @property
     def has_auth(self) -> bool:
-        return bool(self.AUTH_TYPE != 'NONE')
+        return bool(self.auth_username and self.auth_password)
 
 config = Config()
