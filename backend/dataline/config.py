@@ -38,7 +38,7 @@ class Config(BaseSettings):
     sample_titanic_path: str = str(Path(__file__).parent.parent / "samples" / "titanic.sqlite3")
     sample_spotify_path: str = str(Path(__file__).parent.parent / "samples" / "spotify.sqlite3")
 
-    default_model: str = "gpt-3.5-turbo"
+    default_model: str = "gpt-5-mini"
     templates_path: Path = Path(__file__).parent.parent / "templates"
     assets_path: Path = Path(__file__).parent.parent / "assets"
 
@@ -57,7 +57,6 @@ class Config(BaseSettings):
         "http://127.0.0.1:5173"  # comma separated list of origins
     )
 
-
     default_conversation_history_limit: int = 5
 
     default_sql_row_limit: int = 200
@@ -65,15 +64,8 @@ class Config(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     GOOGLE_CLIENT_ID: str|None = None
     ALLOWED_EMAIL_ORIGINS: list[str] = []
-    AUTH_TYPE: str = 'NONE'
     @property
     def has_auth(self) -> bool:
-        return bool(self.AUTH_TYPE != 'NONE')
-
-    default_conversation_history_limit: int = 1
-    default_sql_row_limit: int = 200
-    default_memory_similarity_score: float = 0.5
-    default_embedding_model:str = "text-embedding-3-small"
-
+        return bool(self.auth_username and self.auth_password)
 
 config = Config()

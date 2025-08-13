@@ -14,6 +14,7 @@ from dataline.auth import AuthManager, get_auth_manager
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.media.model import MediaModel
+from dataline.models.user.enums import UserRoles
 from dataline.models.user.schema import UserOut, UserUpdateIn, UserWithKeys, UserUpdateAdmin
 from dataline.repositories.base import AsyncSession, NotFoundError
 from dataline.repositories.media import MediaCreate, MediaRepository
@@ -83,24 +84,24 @@ class SettingsService:
         return media_instances[0] if media_instances else None
 
     async def get_avatar_by_url(self, session: AsyncSession):
-        if self.auth_manager.is_single_user_mode():
+        if not await self.auth_manager.get_user_id():
             return await self.get_avatar(session)
         user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
-        r = requests.get(user_info.avatar_url)
-        avatar = MediaModel(blob=r.content, key=user_info.name)
-        return avatar
-
+        if user_info and user_info.avatar_url:
+            r = requests.get(user_info.avatar_url)
+            avatar = MediaModel(blob=r.content, key=user_info.name)
+            return avatar
+        return await self.get_avatar(session)
 
     async def update_user_info(self, session: AsyncSession, data: UserUpdateIn) -> UserOut:
         # Check if user exists
         user = None
-        if self.auth_manager.is_single_user_mode():
-            user_info = await self.user_repo.get_one_or_none(session)
-        else:
-            user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
-        if user_info is None:
+        user_id = await self.auth_manager.get_user_id()
+        user_info = await self.user_repo.get_by_uuid(session, user_id) if user_id else None
+        if not user_id or not user_info:
             # Create user with data
             user_create = UserCreate.model_construct(**data.model_dump(exclude_unset=True))
+            user_create.role = UserRoles.ADMIN.value
             if user_create.openai_api_key and user_create.preferred_openai_model is None:
                 user_create.preferred_openai_model = (
                     config.default_model
@@ -141,12 +142,6 @@ class SettingsService:
         return UserOut.model_validate(user)
 
     async def get_user_info(self, session: AsyncSession) -> UserOut:
-        if self.auth_manager.is_single_user_mode():
-            user_info = await self.user_repo.get_one_or_none(session)
-            if user_info is None:
-                raise NotFoundError("No user or multiple users found")
-            return UserOut.model_validate(user_info)
-
         user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
         if user_info is None:
             raise NotFoundError("No user or multiple users found")

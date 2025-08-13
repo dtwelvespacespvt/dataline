@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useGetConnections } from "./connections";
 import { isAxiosError } from "axios";
+import { MESSAGES_QUERY_KEY } from "./messages";
 
 export const CONVERSATIONS_QUERY_KEY = ["CONVERSATIONS"];
 
@@ -123,6 +124,24 @@ export function useUpdateConversation(options = {}) {
     },
     onSettled() {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY });
+    },
+    ...options,
+  });
+}
+
+export function useSubmitFeedback(options = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ message_id, is_positive }: { message_id: string; is_positive: boolean }) =>
+    api.submitFeedback({message_id, is_positive}),
+    onError() {
+      enqueueSnackbar({
+        variant: "error",
+        message: "Error submitting feedback",
+      });
+    },
+    onSettled() {
+      queryClient.invalidateQueries({ queryKey: MESSAGES_QUERY_KEY });
     },
     ...options,
   });

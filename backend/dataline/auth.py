@@ -8,9 +8,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.security.base import SecurityBase
 from fastapi.security.utils import get_authorization_scheme_param
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
-from dataline.models.user.model import UserModel
 from dataline.repositories.base import AsyncSession, get_session
 from starlette.requests import Request
 from starlette.status import HTTP_401_UNAUTHORIZED
@@ -19,20 +18,14 @@ from uuid import UUID
 from dataline.config import config
 from dataline.models.user.enums import UserRoles
 from dataline.repositories.user import UserRepository
-from enum import Enum
 
 logger = logging.getLogger(__name__)
 
 class UserInfo(BaseModel):
     name: Optional[str] = None
     id: Optional[UUID] =None
-    email: Optional[EmailStr] = None
     role: Optional[UserRoles] = None
-
-class AuthType(Enum):
-    GOOGLE = 'GOOGLE'
-    BASIC = 'BASIC'
-    NONE = 'NONE'
+    is_single_user: Optional[bool] = False
 
 
 class HTTPBasicCustomized(HTTPBasic):
@@ -71,8 +64,7 @@ class HTTPBearerCustomized(SecurityBase):
 
         try:
             payload = jwt.decode(param, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
-            user = await user_repo.get_by_uuid(session, UUID(payload.get('user_id')))
-            user_info = UserInfo(email=user.email,role=user.role, id=user.id, name=user.name)
+            user_info = UserInfo(role=payload.get('role'), id=payload.get('user_id'), name=payload.get('name'), is_single_user= payload.get('is_single_user'))
             return user_info
 
         except Exception as e:
@@ -81,7 +73,7 @@ class HTTPBearerCustomized(SecurityBase):
 
 
 
-security = HTTPBearerCustomized() if config.AUTH_TYPE ==AuthType.GOOGLE.value else HTTPBasicCustomized() if config.AUTH_TYPE == AuthType.BASIC.value else None
+security = HTTPBearerCustomized() if config.has_auth else None
 
 def validate_credentials(username: str, password: str) -> bool:
     correct_username = secrets.compare_digest(username, str(config.auth_username))
@@ -117,23 +109,18 @@ class AuthManager:
     def __call__(self):
         return self.get_user_info()
 
-    @classmethod
-    def is_single_user_mode(cls) -> bool:
-        return config.AUTH_TYPE != AuthType.GOOGLE.value
 
     def is_admin(self) -> bool:
-        if self.is_single_user_mode():
-            return True
-        return self.user_info.role == UserRoles.ADMIN
+        return self.user_info.role == UserRoles.ADMIN or not config.has_auth
 
-    async def get_user_info(self) -> UserInfo | UserModel:
-        if self.is_single_user_mode():
-            return await self.user_repo.get_one_or_none(self.session)
+    async def get_user_info(self) -> UserInfo | None:
+        if (self.user_info.is_single_user and not self.user_info.id) or not config.has_auth:
+            return await self.user_repo.get_one_by_role(self.session, UserRoles.ADMIN.value)
         return self.user_info
 
     async def get_user_id(self) -> UUID:
         user = await self.get_user_info()
-        return user.id
+        return user.id if user else None
 
 
 def get_auth_manager(

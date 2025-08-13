@@ -34,6 +34,7 @@ async def connect_db(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": False, "is_file": False})
 
@@ -47,6 +48,7 @@ async def connect_sample_db(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": True, "is_file": True})
 
@@ -70,6 +72,7 @@ async def connect_db_from_file(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": False, "is_file": True})
 

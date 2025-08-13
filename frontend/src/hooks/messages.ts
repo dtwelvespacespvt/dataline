@@ -19,7 +19,7 @@ import { getMessageOptions } from "./messageOptions";
 import { useGetRelatedConnection } from "./conversations";
 import { useParams } from "@tanstack/react-router";
 
-const MESSAGES_QUERY_KEY = ["MESSAGES"];
+export const MESSAGES_QUERY_KEY = ["MESSAGES"];
 
 // Load everything
 export function getMessagesQuery({

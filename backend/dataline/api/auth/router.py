@@ -10,9 +10,10 @@ from jose import jwt
 from pydantic import BaseModel
 
 from dataline.config import config
+from dataline.models.user.enums import UserRoles
 from dataline.repositories.base import AsyncSession, get_session
 from dataline.auth import validate_credentials
-from dataline.repositories.user import UserCreate
+from dataline.repositories.user import UserCreate, UserRepository
 from dataline.services.user import UserService
 from dataline.utils.posthog import posthog_capture
 
@@ -34,14 +35,20 @@ async def login(
     password: Annotated[str, Body()],
     response: Response,
     background_tasks: BackgroundTasks,
+    session:Annotated[AsyncSession, Depends(get_session)],
+    user_repo:Annotated[UserRepository, Depends(UserRepository)]
 ) -> Response:
     background_tasks.add_task(posthog_capture, "user_logged_in")
 
     validate_credentials(username, password)
-    ascii_encoded = f"{username}:{password}".encode("ascii")
-    token = base64.b64encode(ascii_encoded).decode("utf-8")
     response.status_code = 200
-    response.set_cookie(key="Authorization", value=f"Basic {token}", secure=True, httponly=True)
+    user = await user_repo.get_one_by_role(session, UserRoles.ADMIN.value)
+    if not user:
+        app_token_data = {"role": UserRoles.ADMIN.value, "name": UserRoles.ADMIN.value, "is_single_user": True}
+    else:
+        app_token_data = {"role": UserRoles.ADMIN.value, "name": UserRoles.ADMIN.value, "is_single_user": False, "user_id": str(user.id)}
+    app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+    response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
     return response
 
 
@@ -57,7 +64,7 @@ async def login_head() -> Response:
     return Response(status_code=200)
 
 @router.post("/google")
-async def google_login(token:GoogleCredentials, response: Response, session:Annotated[AsyncSession, Depends(get_session)], userRepo:Annotated[UserService, Depends(UserService)])-> Response:
+async def google_login(token:GoogleCredentials, response: Response, session:Annotated[AsyncSession, Depends(get_session)], user_repo:Annotated[UserService, Depends(UserService)])-> Response:
     try:
         user = id_token.verify_oauth2_token(token.credential, requests.Request(), config.GOOGLE_CLIENT_ID)
         domain = user.get('email','').split('@')[-1]
@@ -65,8 +72,8 @@ async def google_login(token:GoogleCredentials, response: Response, session:Anno
             raise HTTPException(status_code=401, detail="Domain is not whitelisted")
 
         newuser = UserCreate(name=user.get('name'), avatar_url = user.get('picture', ''), email = user.get('email'))
-        created_user = await userRepo.create_user(session, newuser)
-        app_token_data = {"email": created_user.email, "role": created_user.role, "name": created_user.name, "user_id": str(created_user.id)}
+        created_user = await user_repo.create_user(session, newuser)
+        app_token_data = {"role": created_user.role, "name": created_user.name, "user_id": str(created_user.id), "is_single_user": False}
         app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
         response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
     except ValueError as e:

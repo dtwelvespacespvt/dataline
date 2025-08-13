@@ -12,7 +12,7 @@ from dataline.models.conversation.schema import (
     UpdateConversationRequest,
 )
 from dataline.models.llm_flow.schema import SQLQueryRunResult
-from dataline.models.message.schema import MessageOptions, MessageWithResultsOut
+from dataline.models.message.schema import MessageOptions, MessageWithResultsOut, MessageFeedBack
 from dataline.models.result.schema import ResultOut
 from dataline.old_models import SuccessListResponse, SuccessResponse
 from dataline.repositories.base import AsyncSession, get_session
@@ -170,3 +170,9 @@ async def generate_conversation_title(
 ) -> SuccessResponse[str]:
     title = await conversation_service.generate_title(session, conversation_id)
     return SuccessResponse(data=title)
+
+@router.patch('/conversation/message/feedback')
+async def update_message_feedback(message_feedback: MessageFeedBack,
+    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationService = Depends()):
+    return await conversation_service.update_feedback(session, message_feedback)

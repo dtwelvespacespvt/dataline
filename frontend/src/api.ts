@@ -544,6 +544,15 @@ const bulkUpdateUsers = async (users: types.IUserInfo[]): Promise<BulkUpdateUser
   })).data;
 }
 
+export type SubmitFeedback = ApiResponse<void>;
+const submitFeedback = async (feedback: types.MessageFeedbackUpdate): Promise<SubmitFeedback> => {
+  return (await backendApi<SubmitFeedback>({
+    url: "/conversation/message/feedback",
+    method: "patch",
+    data: feedback ,
+  })).data;
+}
+
 export const api = {
   healthcheck,
   hasAuth,
@@ -583,4 +592,5 @@ export const api = {
   getDictionary,
   getAllUsers,
   bulkUpdateUsers,
+  submitFeedback
 };
