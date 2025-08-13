@@ -4,7 +4,7 @@ import os
 import sqlite3
 import tempfile
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Annotated
 from uuid import UUID
 
 import pandas as pd
@@ -14,8 +14,10 @@ from openai import APIError
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 from typing import Any
-from itertools import chain
 
+from dataline.auth import AuthManager, get_auth_manager
+
+from dataline.auth import UserInfo
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.connection.model import ConnectionModel
@@ -35,6 +37,7 @@ from dataline.repositories.connection import (
     ConnectionType,
     ConnectionUpdate,
 )
+from dataline.repositories.user import UserRepository
 from dataline.services.file_parsers.excel_parser import ExcelParserService
 from dataline.services.llm_flow.llm_calls.database_description_generator import database_description_generator_prompt
 from dataline.services.llm_flow.utils import DatalineSQLDatabase as SQLDatabase
@@ -231,11 +234,15 @@ async def infer_relationships(options: ConnectionOptions, table_schemas, synonym
 class ConnectionService:
     connection_repo: ConnectionRepository
     settings_service: SettingsService
+    user_info: UserInfo
+    user_repo: UserRepository
 
-    def __init__(self, connection_repo: ConnectionRepository = Depends(ConnectionRepository),
-                 settings_service: SettingsService = Depends(SettingsService)) -> None:
+    def __init__(self, auth_manager: Annotated[AuthManager, Depends(get_auth_manager)], connection_repo: ConnectionRepository = Depends(ConnectionRepository),
+                 settings_service: SettingsService = Depends(SettingsService), user_repo:UserRepository = Depends(UserRepository)) -> None:
         self.connection_repo = connection_repo
         self.settings_service = settings_service
+        self.user_repo = user_repo
+        self.auth_manager = auth_manager
 
     async def get_connection(self, session: AsyncSession, connection_id: UUID) -> ConnectionOut:
         connection = await self.connection_repo.get_by_uuid(session, connection_id)
@@ -255,6 +262,14 @@ class ConnectionService:
 
     async def delete_connection(self, session: AsyncSession, connection_id: UUID) -> None:
         await self.connection_repo.delete_by_uuid(session, connection_id)
+
+    async def get_connections_by_user_uuid(self, session:AsyncSession):
+        if self.auth_manager.is_admin():
+            return await self.connection_repo.list_all(session)
+        user = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
+        if user.config and user.config.get('connections'):
+            return await self.connection_repo.get_all_by_uuids(session, user.config.get('connections',[]))
+        return []
 
     async def get_db_from_dsn(self, dsn: str) -> SQLDatabase:
         # Check if connection can be established before saving it
@@ -397,9 +412,9 @@ class ConnectionService:
             client = OpenAI(api_key=api_key, base_url=base_url)
             prompt = database_description_generator_prompt(table, columns)
             description_generator_response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                temperature=1
             )
             parsed = json.loads(description_generator_response.choices[0].message.content)
             return parsed["tableDescription"], parsed["columns"]
@@ -746,11 +761,13 @@ class ConnectionService:
         connection = await self.connection_repo.get_by_uuid(session, connection_id)
 
         the_dict = defaultdict(list)
-        for gloss in connection.glossary:
-            the_dict[gloss].append("glossary")
+        if connection.glossary:
+            for gloss in connection.glossary:
+                the_dict[gloss].append("glossary")
 
-        for unique_key in connection.unique_value_dict:
-            the_dict[unique_key].append("uniqueKey")
+        if connection.unique_value_dict:
+            for unique_key in connection.unique_value_dict:
+                the_dict[unique_key].append("uniqueKey")
 
         return the_dict
 

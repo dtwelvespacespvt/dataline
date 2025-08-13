@@ -13,6 +13,11 @@ export enum Dialect {
   TransactSQL = "tsql",
 }
 
+export enum UserRole {
+  Admin = "ADMIN",
+  User = "USER",
+}
+
 export type IResultTypeName =
   | "SQL_QUERY_STRING_RESULT"
   | "SQL_QUERY_RUN_RESULT"
@@ -77,6 +82,7 @@ export interface IMessageOut {
   content: string;
   role: Role;
   created_at?: string;
+  is_positive?: boolean;
   options?: IMessageOptions;
 }
 
@@ -152,13 +158,28 @@ export interface IEditConnection {
   glossary?: object;
 }
 
+export interface UserConfig {
+  connections: string[];
+}
 export interface IUserInfo {
+  id?: string;
   name: string;
+  email?: string;
   openai_api_key: string;
   openai_base_url?: string | null;
   langsmith_api_key?: string | null;
+  preferred_openai_model?: string;
   sentry_enabled: boolean;
   analytics_enabled: boolean;
+  role: string;
+  config?: {
+    connections?: string[];
+  } | null;
+}
+
+export interface MessageFeedbackUpdate {
+  message_id: string;
+  is_positive: boolean;
 }
 
 export interface PossibleValuesResult {

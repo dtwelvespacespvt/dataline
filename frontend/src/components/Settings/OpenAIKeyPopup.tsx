@@ -14,6 +14,8 @@ import { enqueueSnackbar } from "notistack";
 import { useUpdateUserInfo } from "@/hooks";
 import { Spinner } from "../Spinner/Spinner";
 import { Input } from "@components/Catalyst/input";
+import { useLogout } from "@/hooks/auth";
+import { useNavigate } from "@tanstack/react-router";
 
 export function OpenAIKeyPopup() {
   const [isOpen, setIsOpen] = useState(true);
@@ -21,10 +23,14 @@ export function OpenAIKeyPopup() {
   const [baseUrl, setBaseUrl] = useState("");
   const [sentryEnabled, setSentryEnabled] = useState(true);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
-
+  const navigate = useNavigate();
+  const { mutate: logout } = useLogout({
+      onLogout: () => navigate({ to: "/" }),
+    });
   const { mutate, isPending } = useUpdateUserInfo({
     onSuccess() {
       setIsOpen(false);
+      logout();
     },
   });
 

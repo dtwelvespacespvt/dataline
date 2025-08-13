@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import AsyncGenerator, cast, Dict
+from typing import AsyncGenerator, cast, Dict, Annotated
 from uuid import UUID
 
 from fastapi import Depends
@@ -27,7 +27,7 @@ from dataline.models.message.schema import (
     MessageOptions,
     MessageOut,
     MessageWithResultsOut,
-    QueryOut,
+    QueryOut, MessageFeedBack,
 )
 from dataline.models.result.schema import ResultUpdate
 from dataline.repositories.base import AsyncSession
@@ -52,6 +52,8 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
 from dataline.services.settings import SettingsService
 from dataline.utils.utils import stream_event_str
 
+from dataline.auth import AuthManager, get_auth_manager
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,11 +61,9 @@ class ConversationService:
     conversation_repo: ConversationRepository
     message_repo: MessageRepository
     result_repo: ResultRepository
-    connection_service: ConnectionService
-    settings_service: SettingsService
-
     def __init__(
         self,
+        auth_manager: Annotated[AuthManager,Depends(get_auth_manager)],
         conversation_repo: ConversationRepository = Depends(ConversationRepository),
         message_repo: MessageRepository = Depends(MessageRepository),
         result_repo: ResultRepository = Depends(ResultRepository),
@@ -76,7 +76,12 @@ class ConversationService:
         self.result_repo = result_repo
         self.connection_service = connection_service
         self.settings_service = settings_service
+        self.auth_manager = auth_manager
         self.user_repo = user_repo
+
+    connection_service: ConnectionService
+    settings_service: SettingsService
+    user_repo: UserRepository
 
     async def generate_title(self, session: AsyncSession, conversation_id: UUID) -> str:
         conversation = await self.get_conversation_with_messages(session, conversation_id)
@@ -108,9 +113,8 @@ class ConversationService:
         connection_id: UUID,
         name: str,
     ) -> ConversationOut:
-        user = await self.user_repo.get_one_or_none(session)
         conversation = await self.conversation_repo.create(
-            session, ConversationCreate(connection_id=connection_id, name=name, user_id=user.id)
+            session, ConversationCreate(connection_id=connection_id, name=name, user_id=await self.auth_manager.get_user_id())
         )
         return ConversationOut.model_validate(conversation)
 
@@ -124,8 +128,8 @@ class ConversationService:
         conversation = await self.conversation_repo.get_with_messages_with_results(session, conversation_id)
         return ConversationWithMessagesWithResultsOut.from_conversation(conversation)
 
-    async def get_conversations(self, session: AsyncSession) -> list[ConversationWithMessagesWithResultsOut]:
-        conversations = await self.conversation_repo.list_with_messages_with_results(session)
+    async def get_conversations(self, session: AsyncSession, skip:int=0, limit=10) -> list[ConversationWithMessagesWithResultsOut]:
+        conversations = await self.conversation_repo.list_with_messages_with_results_user(session, await self.auth_manager.get_user_id(), skip, limit)
         return [
             ConversationWithMessagesWithResultsOut.from_conversation(conversation) for conversation in conversations
         ]
@@ -181,7 +185,7 @@ class ConversationService:
         # Get conversation, connection, user settings
         conversation = await self.get_conversation(session, conversation_id=conversation_id)
         connection = await self.connection_service.get_connection(session, connection_id=conversation.connection_id)
-        user_with_model_details = await self.settings_service.get_model_details(session)
+        user_with_model_details = await self.settings_service.get_model_details_new(session, await self.auth_manager.get_user_id())
 
         # Create query graph
         query_graph = QueryGraphService(connection=connection)
@@ -295,8 +299,7 @@ class ConversationService:
         """
         Get the last 10 messages of a conversation (AI, Human, and System)
         """
-        user = await self.user_repo.get_one_or_none(session)
-        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, conversation_id, user.id,  n=config.default_conversation_history_limit)
+        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, conversation_id, await self.auth_manager.get_user_id(),  n=config.default_conversation_history_limit)
         base_messages = []
         for message in reversed(messages):  # Reverse to get the oldest messages first (chat format)
             if message.role == BaseMessageType.HUMAN.value:
@@ -315,3 +318,7 @@ class ConversationService:
                 logger.exception(Exception(f"Unknown message role: {message.role}"))
 
         return base_messages
+
+    async def update_feedback(self, session:AsyncSession, message_feedback:MessageFeedBack)->None:
+        return await self.message_repo.update_feedback(session,message_feedback)
+

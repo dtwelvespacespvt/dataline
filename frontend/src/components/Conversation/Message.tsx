@@ -1,8 +1,8 @@
 import logo from "@/assets/images/logo_md.png";
 import { IMessageWithResultsOut } from "@components/Library/types";
 import { UserCircleIcon } from "@heroicons/react/24/solid";
-import { useGetAvatar } from "@/hooks";
-import { ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { useGetAvatar, useSubmitFeedback } from "@/hooks";
+import { HandThumbDownIcon, HandThumbUpIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { InfoTooltip } from "@components/Library/Tooltip";
 import { MessageResultRenderer } from "./MessageResultRenderer";
 import { Spinner } from "../Spinner/Spinner";
@@ -76,6 +76,20 @@ export const Message = ({
     return parts;
   };
 
+      const { mutate: submitFeedback } = useSubmitFeedback({
+    onSuccess() {
+      console.log('Feedback submitted successfully');
+    },
+  });
+
+  const handleFeedback = (isPositive: boolean) => {
+    submitFeedback({
+      message_id: message.message.id || "",
+      is_positive: isPositive,
+    });
+  };
+    
+
   return (
     <div
       className={classNames(
@@ -87,7 +101,7 @@ export const Message = ({
       )}
     >
       <div className="text-base md:max-w-2xl lg:max-w-2xl xl:max-w-2xl py-4 md:py-6 lg:px-0 m-auto">
-        <div className="px-1 w-full flex flex-col gap-2 md:gap-6 scrollbar-hide">
+        <div className="px-3 md:px-1 w-full flex flex-col gap-2 md:gap-6 scrollbar-hide">
           <div className="px-2 md:px-0 flex justify-center gap-2 sm:gap-4 md:gap-6">
             <div className="flex flex-col shrink-0">
               <MessageIcon message={message} />
@@ -110,6 +124,25 @@ export const Message = ({
                 </div>
               </div>
             )}
+            {message.message.role === 'ai' ? (
+              <div className="flex flex-row ">
+                <HandThumbUpIcon
+                  onClick={() => handleFeedback(true)}
+                  className={`cursor-pointer mx-5 w-5 h-5 ${message.message.is_positive === true
+                    ? 'text-green-400'
+                    : 'text-gray-400 hover:text-green-400'
+                    }`}
+                />
+                <HandThumbDownIcon 
+                onClick={()=>handleFeedback(false)}
+                className={`cursor-pointer w-5 h-5 ${message.message.is_positive === false
+                  ? 'text-red-400'
+                  : 'text-gray-400 hover:text-red-400'
+                  }`} />
+
+              </div>
+
+            ) : null}
           </div>
 
           {/** RESULTS: QUERY, DATA, PLOTS */}

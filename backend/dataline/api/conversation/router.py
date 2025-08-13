@@ -2,9 +2,9 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, BackgroundTasks
+from fastapi import APIRouter, Body, Depends, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
-
+from dataline.auth import UserInfo, security
 from dataline.models.conversation.schema import (
     ConversationOut,
     ConversationWithMessagesWithResultsOut,
@@ -12,7 +12,7 @@ from dataline.models.conversation.schema import (
     UpdateConversationRequest,
 )
 from dataline.models.llm_flow.schema import SQLQueryRunResult
-from dataline.models.message.schema import MessageOptions, MessageWithResultsOut
+from dataline.models.message.schema import MessageOptions, MessageWithResultsOut, MessageFeedBack
 from dataline.models.result.schema import ResultOut
 from dataline.old_models import SuccessListResponse, SuccessResponse
 from dataline.repositories.base import AsyncSession, get_session
@@ -40,12 +40,13 @@ async def get_conversation(
 
 @router.get("/conversations")
 async def conversations(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of records to return"),
     session: AsyncSession = Depends(get_session),
-    conversation_service: ConversationService = Depends(),
+    conversation_service: ConversationService = Depends()
 ) -> SuccessListResponse[ConversationWithMessagesWithResultsOut]:
-    conversations = await conversation_service.get_conversations(session)
     return SuccessListResponse(
-        data=conversations,
+        data= await conversation_service.get_conversations(session, skip, limit),
     )
 
 
@@ -55,6 +56,7 @@ async def get_conversation_messages(
     session: Annotated[AsyncSession, Depends(get_session)],
     conversation_service: Annotated[ConversationService, Depends()],
     background_tasks: BackgroundTasks,
+    user_info: UserInfo = Depends(security)
 ) -> SuccessListResponse[MessageWithResultsOut]:
     background_tasks.add_task(posthog_capture, "conversation_opened")
     conversation = await conversation_service.get_conversation_with_messages(session, conversation_id=conversation_id)
@@ -67,7 +69,7 @@ async def create_conversation(
     conversation_in: CreateConversationIn,
     session: Annotated[AsyncSession, Depends(get_session)],
     conversation_service: Annotated[ConversationService, Depends()],
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks
 ) -> SuccessResponse[ConversationOut]:
     background_tasks.add_task(posthog_capture, "conversation_created")
     conversation = await conversation_service.create_conversation(
@@ -168,3 +170,9 @@ async def generate_conversation_title(
 ) -> SuccessResponse[str]:
     title = await conversation_service.generate_title(session, conversation_id)
     return SuccessResponse(data=title)
+
+@router.patch('/conversation/message/feedback')
+async def update_message_feedback(message_feedback: MessageFeedBack,
+    session: AsyncSession = Depends(get_session),
+    conversation_service: ConversationService = Depends()):
+    return await conversation_service.update_feedback(session, message_feedback)

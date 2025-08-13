@@ -5,6 +5,7 @@ from sentry_sdk.hub import GLOBAL_HUB
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from dataline.config import config
+from dataline.models.user.enums import UserRoles
 from dataline.repositories.base import SessionCreator
 from dataline.repositories.user import UserRepository
 
@@ -31,6 +32,6 @@ def opt_out_of_sentry() -> None:
 async def maybe_init_sentry() -> None:
     async with SessionCreator.begin() as session:
         user_repo = UserRepository()
-        user_info = await user_repo.get_one_or_none(session)
+        user_info = await user_repo.get_one_by_role(session, UserRoles.ADMIN.value)
         if user_info is not None and user_info.sentry_enabled:
             setup_sentry()

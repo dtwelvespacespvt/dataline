@@ -28,7 +28,7 @@ async def sample_conversation(
 @patch.object(OpenAIModels, "list")
 async def user_info(mock_openai_model_list: MagicMock, client: TestClient) -> dict[str, str]:
     mock_model = MagicMock()
-    mock_model.id = "gpt-3.5-turbo"
+    mock_model.id = "gpt-4.1-mini"
     mock_openai_model_list.return_value = [mock_model]
     user_in = {
         "name": "John",

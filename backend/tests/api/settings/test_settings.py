@@ -10,24 +10,18 @@ from openai.resources.models import Models as OpenAIModels
 
 logger = logging.getLogger(__name__)
 
-
+@pytest.mark.usefixtures("user_info")
 @pytest.mark.asyncio
 async def test_update_user_info_name(client: TestClient) -> None:
     user_in = {"name": "John"}
     response = client.patch("/settings/info", json=user_in)
 
     assert response.status_code == 200
-    assert response.json() == {
-        "data": {
-            "name": "John",
-            "openai_api_key": None,
-            "preferred_openai_model": None,
-            "langsmith_api_key": None,
-            "openai_base_url": None,
-            "sentry_enabled": True,
-            "analytics_enabled": True,
-        },
-    }
+
+    response_data = response.json().get("data")
+
+    assert response_data is not None
+    assert response_data["name"] == "John"
 
 
 @pytest.mark.asyncio

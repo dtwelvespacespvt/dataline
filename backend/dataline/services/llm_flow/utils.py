@@ -153,7 +153,8 @@ class DatalineSQLDatabase(SQLDatabase):
         parsed_blacklisted_table_suffixes = [t.strip() for t in blacklisted_table_suffixes.split(",")] \
             if blacklisted_table_suffixes else []
         _engine_args = engine_args or {}
-        new_database_uri = url.set(query={})
+        creds_param = {"credentials_base64": query["credentials_base64"]} if query.get('credentials_base64') else {}
+        new_database_uri = url.set(query=creds_param)
         uri_with_password = str(new_database_uri.render_as_string(hide_password=False))
         engine = create_engine(uri_with_password, **_engine_args)
         return cls(engine,

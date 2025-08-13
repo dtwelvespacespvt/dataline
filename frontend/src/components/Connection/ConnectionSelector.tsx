@@ -2,7 +2,7 @@ import ConnectionImage from "./DatabaseDialectImage";
 import { useState } from "react";
 import { IConnection, IConversation } from "../Library/types";
 import { Cog6ToothIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
-import { useCreateConversation, useGetConnections } from "@/hooks";
+import { useCreateConversation, useGetConnections, useGetUserProfile } from "@/hooks";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "../Catalyst/button";
 
@@ -14,6 +14,7 @@ export const ConnectionSelector = () => {
   const navigate = useNavigate();
   const [, setConversation] = useState<IConversation | null>();
   const { data, isFetching: isRefreshing, refetch } = useGetConnections();
+  const { data: userProfile } = useGetUserProfile();
 
   const createConnection = () => {
     navigate({ to: "/connection/new" });
@@ -85,21 +86,22 @@ export const ConnectionSelector = () => {
                   </div>
 
                   {/** ------ Connection Settings ------ */}
-                  <div className="flex flex-col justify-end items-end h-full">
-                    <Link
-                      to={`/connection/${connection.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent the click event from propagating to the parent container
-                      }}
-                      className="flex-none group w-10 h-10 p-1 flex justify-end items-end hover:bg-gray-600 rounded-md duration-100 transition-colors "
-                    >
-                      <Cog6ToothIcon className="text-gray-50 group-hover:-rotate-45 transition-transform duration-100" />
-                    </Link>
-                  </div>
+                  {userProfile?.role === "ADMIN" ?
+                    <div className="flex flex-col justify-end items-end h-full">
+                      <Link
+                        to={`/connection/${connection.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent the click event from propagating to the parent container
+                        }}
+                        className="flex-none group w-10 h-10 p-1 flex justify-end items-end hover:bg-gray-600 rounded-md duration-100 transition-colors "
+                      >
+                        <Cog6ToothIcon className="text-gray-50 group-hover:-rotate-45 transition-transform duration-100" />
+                      </Link>
+                    </div> : null}
                 </div>
               </div>
             ))}
-
+              {userProfile?.role === "ADMIN" ?
             <div
               className="hover:cursor-pointer md:hover:ring-2 ring-gray-600 border px-2 py-2 border-gray-700 aspect-square overflow-hidden rounded-lg flex flex-col justify-between hover:bg-gray-700 transition-all duration-75 w-full sm:w-auto sm:max-w-xs"
               onClick={createConnection}
@@ -132,6 +134,7 @@ export const ConnectionSelector = () => {
                 </div>
               </div>
             </div>
+            :null}
           </div>
         </div>
       </div>
