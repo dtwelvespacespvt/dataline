@@ -38,7 +38,7 @@ class Config(BaseSettings):
     sample_titanic_path: str = str(Path(__file__).parent.parent / "samples" / "titanic.sqlite3")
     sample_spotify_path: str = str(Path(__file__).parent.parent / "samples" / "spotify.sqlite3")
 
-    default_model: str = "gpt-3.5-turbo"
+    default_model: str = "gpt-5-mini"
     templates_path: Path = Path(__file__).parent.parent / "templates"
     assets_path: Path = Path(__file__).parent.parent / "assets"
 
