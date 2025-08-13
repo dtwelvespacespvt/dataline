@@ -51,8 +51,6 @@ from collections import defaultdict
 import re
 from sqlalchemy import text
 
-from tests.api.conversation.conftest import user_info
-
 logger = logging.getLogger(__name__)
 
 
