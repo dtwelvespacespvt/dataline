@@ -48,13 +48,15 @@ export const GoogleAuth: React.FC<GoogleAuthProps> = ({ onSuccess, onError }) =>
             <span className="bg-gray-900 px-2 text-gray-400">Or continue with</span>
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 flex justify-center w-full">
           <GoogleLogin
             onSuccess={handleLoginSuccess}
             onError={handleLoginError}
+            use_fedcm_for_prompt={false}
             theme="filled_black"
             size="large"
-            width="100%"
+            width="300"
+            useOneTap={true}
           />
         </div>
       </div>
