@@ -535,6 +535,39 @@ const GlossaryEditor = ({
     </>
   )
 }
+const ConnectionPromptEditor = ({
+  connectionPrompt,
+  setConnectionPrompt,
+  setUnsavedChanges
+}: {
+  connectionPrompt: string;
+  setConnectionPrompt: React.Dispatch<React.SetStateAction<string>>;
+  setUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setConnectionPrompt(e.target.value);
+    setUnsavedChanges(true);
+  };
+
+  return (
+    <>
+      <div className="mt-2 divide-y divide-white/5 rounded-xl bg-white/5">
+        <div className="w-full p-6">
+          <textarea
+            name="connectionPrompt"
+            disabled={false}
+            value={connectionPrompt}
+            onChange={handlePromptChange}
+            placeholder="Enter connection prompt..."
+            rows={4}
+            className="bg-white/5 text-white block w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+          />
+        </div>
+      </div>
+    </>
+  );
+};
+
 const connectionRouteApi = getRouteApi("/_app/connection/$connectionId");
 
 export const ConnectionEditor = () => {
@@ -555,6 +588,8 @@ export const ConnectionEditor = () => {
   const glossaryData: any = data?.glossary ?? {};
 
   const newGlsry = Object?.keys(glossaryData).map((key: string) => ({ key, value: glossaryData?.[key] || "" }))
+
+  const newConnectionPrompt = data?.config?.connection_prompt || "";
 
   const { mutate: deleteConnection } = useDeleteConnection({
     onSuccess() {
@@ -601,8 +636,7 @@ export const ConnectionEditor = () => {
   });
 
   const [glossary, setGlossary] = useState(newGlsry)
-
-
+  const [connectionPrompt, setConnectionPrompt] = useState(newConnectionPrompt);
 
   useEffect(() => {
     setEditFields((prev) => ({
@@ -611,6 +645,7 @@ export const ConnectionEditor = () => {
       options: connection?.options || prev.options,
     }));
     setGlossary(newGlsry);
+    setConnectionPrompt(newConnectionPrompt);
   }, [connection]);
 
   if (!connectionId) {
@@ -687,7 +722,6 @@ export const ConnectionEditor = () => {
   function handleSubmit() {
     if (!unsavedChanges) {
       navigate({ to: "/" }); // Return to previous page
-
       return;
     }
 
@@ -699,7 +733,11 @@ export const ConnectionEditor = () => {
         name: editFields.name,
         ...(editFields.dsn !== connection?.dsn && { dsn: editFields.dsn }),
         options: editFields.options,
-        glossary: convertToKeyValueObject(glossary)
+        glossary: convertToKeyValueObject(glossary),
+        config: {
+          ...connection?.config,
+          connection_prompt: connectionPrompt
+        }
       },
     });
   }
@@ -799,6 +837,23 @@ export const ConnectionEditor = () => {
                 )}
               />
             </div>
+          </div>
+
+          <div className="sm:col-span-6">
+            <div className="flex items-center mb-2 gap-x-2">
+              <label
+                htmlFor="connectionPrompt"
+                className="block text-sm font-medium leading-6 text-white"
+              >
+                Connection Prompt
+              </label>
+            </div>
+
+            <ConnectionPromptEditor
+              connectionPrompt={connectionPrompt}
+              setConnectionPrompt={setConnectionPrompt}
+              setUnsavedChanges={setUnsavedChanges}
+            />
           </div>
 
           <div className="sm:col-span-6">

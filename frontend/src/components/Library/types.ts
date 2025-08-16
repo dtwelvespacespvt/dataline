@@ -140,6 +140,10 @@ export interface IConnectionOptions {
   }[];
 }
 
+export interface ConnectionConfig {
+  connection_prompt?: string;
+}
+
 export interface IConnection {
   id: string;
   dsn: string;
@@ -149,6 +153,7 @@ export interface IConnection {
   is_sample: boolean;
   options?: IConnectionOptions;
   glossary?: object;
+  config?: ConnectionConfig;
 }
 
 export interface IEditConnection {
@@ -156,6 +161,7 @@ export interface IEditConnection {
   dsn?: string;
   options?: IConnectionOptions;
   glossary?: object;
+  config?: ConnectionConfig
 }
 
 export interface UserConfig {

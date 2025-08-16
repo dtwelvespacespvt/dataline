@@ -458,6 +458,8 @@ class ConnectionService:
             update.name = data.name
         if data.glossary:
             update.glossary = data.glossary
+        if data.config:
+            update.config = data.config
         updated_connection = await self.connection_repo.update_by_uuid(session, connection_uuid, update)
         return ConnectionOut.model_validate(updated_connection)
 
