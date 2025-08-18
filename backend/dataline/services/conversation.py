@@ -321,10 +321,15 @@ class ConversationService:
 
         return base_messages
 
-    async def update_feedback(self, session:AsyncSession, message_feedback:MessageFeedBack)->None:
+    async def update_feedback(self, session: AsyncSession, message_feedback: MessageFeedBack) -> None:
         conversation_uuid = await self.message_repo.update_feedback(session, message_feedback)
+        user_info = await self.auth_manager.get_user_info()
+        feedback_action = "👍 *Upvoted*" if message_feedback.is_positive else "👎 *Downvoted*"
         asyncio.create_task(slack_push(
-                                 message="Message_id {} \n {} \nfor conversation {}".format(message_feedback.message_id,
-                                                                                            "👍Up voted" if message_feedback.is_positive else "👎Down voted",
-                                                                                            conversation_uuid)))
-
+            message=(
+                f"📝 *New Message Feedback*\n"
+                f"{feedback_action} by *{user_info.id}* (`{user_info.name}`)\n"
+                f"• *Message ID:* `{message_feedback.message_id}`\n"
+                f"• *Conversation ID:* `{conversation_uuid}`\n"
+                f"• *Feedback:* {message_feedback.content}" if message_feedback.content else ""
+            )))

@@ -186,6 +186,7 @@ export interface IUserInfo {
 export interface MessageFeedbackUpdate {
   message_id: string;
   is_positive: boolean;
+  content: string;
 }
 
 export interface PossibleValuesResult {

@@ -47,7 +47,7 @@ class SettingsService:
         self.user_repo = user_repo
         self.auth_manager = auth_manager
 
-    async def upload_media(self, session: AsyncSession, file: UploadFile) -> MediaModel:
+    def prepare_media(self, session: AsyncSession, file: UploadFile) -> MediaCreate:
         # Make sure file is an image
         if not file.content_type or not file.content_type.startswith("image/"):
             raise ValidationError("File must be a valid image")
@@ -68,30 +68,22 @@ class SettingsService:
         # Upload file blob
         file_blob = file.file.read()
 
-        media_create = MediaCreate(key=file_name, blob=file_blob)
-        return await self.media_repo.create(session, data=media_create)
+        return MediaCreate(key=file_name, blob=file_blob)
 
-    async def upload_avatar(self, session: AsyncSession, file: UploadFile) -> MediaModel:
-        # Delete old avatar
-        old_avatar = await self.get_avatar(session)
-        if old_avatar:
-            await self.media_repo.delete_by_uuid(session, old_avatar.id)
-
-        return await self.upload_media(session, file)
+    async def upload_avatar(self, session: AsyncSession, file: UploadFile) -> bytes:
+        media = self.prepare_media(session, file)
+        return await self.user_repo.update_avatar_blob(session, media.blob, await self.auth_manager.get_user_id())
 
     async def get_avatar(self, session: AsyncSession) -> Optional[MediaModel]:
-        media_instances = await self.media_repo.list_all(session)
-        return media_instances[0] if media_instances else None
-
-    async def get_avatar_by_url(self, session: AsyncSession):
-        if not await self.auth_manager.get_user_id():
-            return await self.get_avatar(session)
         user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
-        if user_info and user_info.avatar_url:
+        if user_info.avatar_blob:
+            return MediaModel(blob=user_info.avatar_blob, key=user_info.name)
+
+        if user_info.avatar_url:
             r = requests.get(user_info.avatar_url)
-            avatar = MediaModel(blob=r.content, key=user_info.name)
-            return avatar
-        return await self.get_avatar(session)
+            return MediaModel(blob=r.content, key=user_info.name)
+
+        return MediaModel(blob=None, key=user_info.name)
 
     async def update_user_info(self, session: AsyncSession, data: UserUpdateIn) -> UserOut:
         # Check if user exists

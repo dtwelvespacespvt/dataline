@@ -37,6 +37,7 @@ class MessageUpdate(BaseModel):
 class MessageFeedBack(BaseModel):
     message_id: UUID
     is_positive: bool | None
+    content: str | None
 
 
 class MessageOut(BaseModel):
