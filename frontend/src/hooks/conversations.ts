@@ -132,8 +132,8 @@ export function useUpdateConversation(options = {}) {
 export function useSubmitFeedback(options = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ message_id, is_positive }: { message_id: string; is_positive: boolean }) =>
-    api.submitFeedback({message_id, is_positive}),
+    mutationFn: async ({ message_id, is_positive, content }: { message_id: string; is_positive: boolean; content: string }) =>
+    api.submitFeedback({message_id, is_positive, content}),
     onError() {
       enqueueSnackbar({
         variant: "error",

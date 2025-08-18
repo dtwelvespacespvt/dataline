@@ -127,6 +127,7 @@ def avatar_file() -> tuple[FileTuple, bytes]:
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_upload_avatar(client: TestClient, avatar_file: tuple[FileTuple, bytes]) -> None:
     file, file_data = avatar_file
     base64_encoded = b64encode(file_data).decode("utf-8")
@@ -149,6 +150,7 @@ async def avatar(client: TestClient, avatar_file: tuple[FileTuple, bytes]) -> st
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_get_avatar(client: TestClient, avatar: str) -> None:
     # Send a GET request to the /settings/avatar endpoint
     response = client.get("/settings/avatar")

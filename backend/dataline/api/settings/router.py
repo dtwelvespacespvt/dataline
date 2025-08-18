@@ -23,8 +23,8 @@ async def upload_avatar(
 ) -> SuccessResponse[AvatarOut]:
     background_tasks.add_task(posthog_capture, "avatar_uploaded")
 
-    media = await settings_service.upload_avatar(session, file)
-    blob_base64 = base64.b64encode(media.blob).decode("utf-8")
+    blob = await settings_service.upload_avatar(session, file)
+    blob_base64 = base64.b64encode(blob).decode("utf-8")
     return SuccessResponse(data=AvatarOut(blob=blob_base64))
 
 
@@ -32,7 +32,7 @@ async def upload_avatar(
 async def get_avatar(
     settings_service: SettingsService = Depends(SettingsService), session: AsyncSession = Depends(get_session)
 ) -> SuccessResponse[AvatarOut]:
-    media = await settings_service.get_avatar_by_url(session)
+    media = await settings_service.get_avatar(session)
     if media is None:
         raise HTTPException(status_code=404, detail="No user avatar found")
 

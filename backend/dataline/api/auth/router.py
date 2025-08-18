@@ -46,7 +46,7 @@ async def login(
     if not user:
         app_token_data = {"role": UserRoles.ADMIN.value, "name": UserRoles.ADMIN.value, "is_single_user": True}
     else:
-        app_token_data = {"role": UserRoles.ADMIN.value, "name": UserRoles.ADMIN.value, "is_single_user": False, "user_id": str(user.id)}
+        app_token_data = {"role": UserRoles.ADMIN.value, "name": user.name, "is_single_user": False, "user_id": str(user.id)}
     app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
     response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
     return response
