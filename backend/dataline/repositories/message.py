@@ -38,13 +38,14 @@ class MessageRepository(BaseRepository[MessageModel, MessageCreate, MessageUpdat
         )
         return await self.list_unique(session, query=query)
 
-    async def update_feedback(self,session: AsyncSession, message_feedback:MessageFeedBack):
+    async def update_feedback(self, session: AsyncSession, message_feedback:MessageFeedBack)-> UUID:
         query = (
             update(MessageModel)
             .where(MessageModel.id == message_feedback.message_id)
             .values(is_positive=message_feedback.is_positive)
+            .returning(MessageModel.conversation_id)
         )
-        return await session.execute(query)
+        return await session.scalar(query)
 
     async def get_by_connection_and_user_with_sql_results(self, session: AsyncSession, connection_id: UUID, conversation_id:UUID, user_id:UUID, n: int = 10) -> Sequence[MessageModel]:
         latest_conversations_subquery = (

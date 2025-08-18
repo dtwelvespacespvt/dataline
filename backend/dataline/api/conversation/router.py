@@ -174,5 +174,5 @@ async def generate_conversation_title(
 @router.patch('/conversation/message/feedback')
 async def update_message_feedback(message_feedback: MessageFeedBack,
     session: AsyncSession = Depends(get_session),
-    conversation_service: ConversationService = Depends()):
+    conversation_service: ConversationService = Depends()) -> None:
     return await conversation_service.update_feedback(session, message_feedback)
