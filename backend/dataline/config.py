@@ -57,12 +57,13 @@ class Config(BaseSettings):
         "http://127.0.0.1:5173"  # comma separated list of origins
     )
 
-    default_conversation_history_limit: int = 5
+    slack_url: str | None = None
 
+    default_conversation_history_limit: int = 5
     default_sql_row_limit: int = 200
-    JWT_SECRET: str|None= None
+    JWT_SECRET: str | None= None
     JWT_ALGORITHM: str = "HS256"
-    GOOGLE_CLIENT_ID: str|None = None
+    GOOGLE_CLIENT_ID: str | None = None
     ALLOWED_EMAIL_ORIGINS: list[str] = []
     @property
     def has_auth(self) -> bool:

@@ -154,7 +154,7 @@ export const Conversation = () => {
   }
 
   return (
-    <div className="bg-gray-700 w-full h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] relative flex flex-col">
+    <div className="bg-gray-900 w-full h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] relative flex flex-col">
       <Transition
         key={params.conversationId}
         enter="transition duration-200"

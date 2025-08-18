@@ -50,6 +50,7 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
     call,
 )
 from dataline.services.settings import SettingsService
+from dataline.utils.slack import slack_push
 from dataline.utils.utils import stream_event_str
 
 from dataline.auth import AuthManager, get_auth_manager
@@ -320,5 +321,7 @@ class ConversationService:
         return base_messages
 
     async def update_feedback(self, session:AsyncSession, message_feedback:MessageFeedBack)->None:
-        return await self.message_repo.update_feedback(session,message_feedback)
+        conversation_uuid = await self.message_repo.update_feedback(session, message_feedback)
+        await slack_push(message="Message_id {} {} \nfor conversation {}".format(message_feedback.message_id, "👍Up voted" if message_feedback.is_positive else "👎Down voted" , conversation_uuid))
+
 

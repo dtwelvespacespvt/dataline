@@ -16,6 +16,7 @@ from dataline.auth import validate_credentials
 from dataline.repositories.user import UserCreate, UserRepository
 from dataline.services.user import UserService
 from dataline.utils.posthog import posthog_capture
+from dataline.utils.slack import slack_push
 
 logger = getLogger()
 
@@ -73,6 +74,7 @@ async def google_login(token:GoogleCredentials, response: Response, session:Anno
 
         newuser = UserCreate(name=user.get('name'), avatar_url = user.get('picture', ''), email = user.get('email'))
         created_user = await user_repo.create_user(session, newuser)
+        await slack_push(message="User Created \n Email: {} \n Name:{}".format(user.get('email'), user.get('name','')))
         app_token_data = {"role": created_user.role, "name": created_user.name, "user_id": str(created_user.id), "is_single_user": False}
         app_token = jwt.encode(app_token_data, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
         response.set_cookie(key="Authorization", value=f"Bearer {app_token}", httponly=True)
