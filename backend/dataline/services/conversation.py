@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 from typing import AsyncGenerator, cast, Dict, Annotated
@@ -322,6 +323,8 @@ class ConversationService:
 
     async def update_feedback(self, session:AsyncSession, message_feedback:MessageFeedBack)->None:
         conversation_uuid = await self.message_repo.update_feedback(session, message_feedback)
-        await slack_push(message="Message_id {} {} \nfor conversation {}".format(message_feedback.message_id, "👍Up voted" if message_feedback.is_positive else "👎Down voted" , conversation_uuid))
-
+        asyncio.create_task(slack_push(
+                                 message="Message_id {} \n {} \nfor conversation {}".format(message_feedback.message_id,
+                                                                                            "👍Up voted" if message_feedback.is_positive else "👎Down voted",
+                                                                                            conversation_uuid)))
 

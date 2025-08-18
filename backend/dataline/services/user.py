@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import Depends
@@ -6,7 +7,7 @@ from dataline.models.user.enums import UserRoles
 from dataline.models.user.model import UserConfig, UserModel
 from dataline.repositories.base import AsyncSession
 from dataline.repositories.user import UserRepository, UserCreate
-
+from dataline.utils.slack import slack_push
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,9 @@ class UserService:
             user.preferred_openai_model = admin_user.preferred_openai_model
 
         user.config = UserConfig(connections=[])
-        return await self.user_repo.create(session, user)
+        created_user =  await self.user_repo.create(session, user)
+        asyncio.create_task(slack_push(message="User Created \n Email: {} \n Name:{}".format(user.email, user.name)))
+        return created_user
 
     async def get_all_users(self, session:AsyncSession):
         return await self.user_repo.list_all(session)

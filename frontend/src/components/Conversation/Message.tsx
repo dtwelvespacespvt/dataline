@@ -127,14 +127,14 @@ export const Message = ({
             {message.message.role === 'ai' ? (
               <div className="flex flex-row ">
                 <HandThumbUpIcon
-                  onClick={() => { if (message.message.is_positive === false) handleFeedback(true) }}
+                  onClick={() => { if (message.message.is_positive == null || message.message.is_positive === false) handleFeedback(true) }}
                   className={`cursor-pointer mx-5 w-5 h-5 ${message.message.is_positive === true
                     ? 'text-green-400'
                     : 'text-gray-400 hover:text-green-400'
                     }`}
                 />
                 <HandThumbDownIcon
-                  onClick={() => { if (message.message.is_positive === true) handleFeedback(false) }}
+                  onClick={() => { if (message.message.is_positive == null|| message.message.is_positive === true) handleFeedback(false) }}
                   className={`cursor-pointer w-5 h-5 ${message.message.is_positive === false
                     ? 'text-red-400'
                     : 'text-gray-400 hover:text-red-400'
