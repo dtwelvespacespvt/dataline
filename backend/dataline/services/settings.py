@@ -83,7 +83,7 @@ class SettingsService:
             r = requests.get(user_info.avatar_url)
             return MediaModel(blob=r.content, key=user_info.name)
 
-        return MediaModel(blob=None, key=user_info.name)
+        return None
 
     async def update_user_info(self, session: AsyncSession, data: UserUpdateIn) -> UserOut:
         # Check if user exists
