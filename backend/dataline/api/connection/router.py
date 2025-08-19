@@ -216,6 +216,7 @@ async def generate_relationships_per_column(
         column_type: str,
         session: Annotated[AsyncSession, Depends(get_session)],
         connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks
 ) -> SuccessListResponse[RelationshipOut]:
     background_tasks.add_task(posthog_capture, "get_relationship_per_column")
 
