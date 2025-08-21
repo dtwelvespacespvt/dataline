@@ -196,8 +196,7 @@ class ConnectionUpdateIn(BaseModel):
     dsn: Optional[str] = None
     options: Optional[ConnectionOptions] = None
     glossary: Dict[str,str] = None
-    config: ConnectionConfigSchema = None
-    unique_value_dict: Dict[str, list[tuple[str,str]]] = None
+    config: Optional[ConnectionConfigSchema] = None
 
     @field_validator("dsn")
     def validate_dsn_format(cls, value: str) -> str:

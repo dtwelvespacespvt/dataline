@@ -151,16 +151,6 @@ class SettingsService:
         user_info.preferred_openai_model = user_info.preferred_openai_model or config.default_model
         return UserWithKeys.model_validate(user_info)
 
-    async def get_model_details_new(self, session: AsyncSession, user_id: UUID):
-        user_info = await self.user_repo.get_by_uuid(session, user_id)
-        if user_info is None:
-            raise NotFoundError("No user found. Please setup your application.")
-
-        if not user_info.openai_api_key:
-            raise Exception("OpenAI key not setup. Please setup your application.")
-
-        user_info.preferred_openai_model = user_info.preferred_openai_model or config.default_model
-        return UserWithKeys.model_validate(user_info)
 
     async def get_all_users(self, session: AsyncSession):
         return await self.user_repo.list_all(session)

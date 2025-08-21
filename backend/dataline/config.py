@@ -59,7 +59,10 @@ class Config(BaseSettings):
 
     slack_url: str | None = None
 
-    default_conversation_history_limit: int = 5
+    persistent_dir: str = "./long_term_memory"
+    default_embedding_model: str = "text-embedding-3-small"
+
+    default_conversation_history_limit: int = 1
     default_sql_row_limit: int = 200
     JWT_SECRET: str | None= None
     JWT_ALGORITHM: str = "HS256"

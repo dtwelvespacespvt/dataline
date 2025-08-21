@@ -142,6 +142,8 @@ export interface IConnectionOptions {
 
 export interface ConnectionConfig {
   connection_prompt?: string;
+  validation_query?: string;
+  default_table_limit?: number;
 }
 
 export interface IConnection {

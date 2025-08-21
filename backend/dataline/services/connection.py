@@ -451,8 +451,6 @@ class ConnectionService:
             # only modify options if dsn hasn't changed
             update.options = data.options
             # generate Unique Value Dict
-            connection = await self.connection_repo.get_by_uuid(session, connection_uuid)
-            db = await self.get_db_from_dsn(connection.dsn)
             update.unique_value_dict = await self.generate_unique_value_dict(update.options)
         if data.name:
             update.name = data.name

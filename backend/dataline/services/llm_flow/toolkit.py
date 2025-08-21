@@ -483,7 +483,7 @@ class SQLDatabaseToolkit(BaseToolkit):
             "will be returned. If an error is returned, rewrite the query, check the "
             "query, and try again. If you encounter an issue with Unknown column "
             f"'xxxx' in 'field list', use {info_sql_database_tool.name} "
-            "to query the correct table fields."
+            "to query the correct table fields. Don't the run same query multiple times"
         )
         query_sql_database_tool = QuerySQLDataBaseTool(db=self.db, description=query_sql_database_tool_description)
 

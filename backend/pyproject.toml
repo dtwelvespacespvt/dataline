@@ -20,6 +20,8 @@ dependencies = [
     "python-jose==3.5.0",
     "google-auth==2.40.3",
     "sqlalchemy-bigquery==1.15.0",
+    "langchain-chroma>=0.1.2",
+
 
     # newer python-multipart versions break packages, see pypi changelog
     "python-multipart>=0.0.9,<=0.0.12",
