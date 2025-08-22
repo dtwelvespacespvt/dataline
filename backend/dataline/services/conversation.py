@@ -4,7 +4,7 @@ import re
 from typing import AsyncGenerator, cast, Dict, Annotated
 from uuid import UUID
 
-from black.trans import defaultdict
+from collections import defaultdict
 from fastapi import Depends
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from openai._exceptions import APIError
