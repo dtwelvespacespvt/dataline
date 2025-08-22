@@ -59,7 +59,9 @@ class Config(BaseSettings):
 
     slack_url: str | None = None
 
-    persistent_dir: str = "./long_term_memory"
+    vector_db_url: str | None = None
+    vector_db_type: str | None = None
+    default_memory_conversation_depth: int = 3
     default_embedding_model: str = "text-embedding-3-small"
 
     default_conversation_history_limit: int = 1

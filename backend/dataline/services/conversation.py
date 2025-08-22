@@ -146,7 +146,7 @@ class ConversationService:
         try:
             await self.persistent_chat_memory.delete_conversation_memory(session, conversation_id)
         except Exception as e:
-            logger.error("Error while deleting memory for conversation_id: %s e: %s",conversation_id, e)
+            logger.error("Error while deleting memory for conversation_id: {} error:{}".format(conversation_id, e))
         await self.conversation_repo.delete_by_uuid(session, record_id=conversation_id)
 
     async def update_conversation_name(
@@ -207,7 +207,7 @@ class ConversationService:
         try:
             await self.build_memory(session, connection.id)
         except Exception as e:
-            logger.error("Cant Build memory for userId: %s for connection: %s error: %s",await self.auth_manager.get_user_id(), connection.id, e)
+            logger.error("Cant Build memory for userId: {} for connection: {} error: {}".format(await self.auth_manager.get_user_id(), connection.id, e))
         messages: list[BaseMessage] = []
         results: list[ResultType] = []
         # Perform query and execute graph
@@ -221,7 +221,7 @@ class ConversationService:
         try:
             long_term_memory = await self.persistent_chat_memory.get_relevant_memories(session, cleaned_query)
         except Exception as e:
-            logger.error("Error Getting Memory For user: %s connectionId: %s", await self.auth_manager.get_user_id(), connection.id)
+            logger.error("Error Getting Memory For user: {} connectionId: {} e: {}".format(await self.auth_manager.get_user_id(), connection.id, e))
         async for chunk in (query_graph.query(
             query=cleaned_query,
             options=QueryOptions(
