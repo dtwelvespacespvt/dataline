@@ -20,9 +20,7 @@ dependencies = [
     "python-jose==3.5.0",
     "google-auth==2.40.3",
     "sqlalchemy-bigquery==1.15.0",
-    "langchain-chroma>=0.1.2",
-
-
+    "psycopg-binary==3.2.3",
     # newer python-multipart versions break packages, see pypi changelog
     "python-multipart>=0.0.9,<=0.0.12",
     "aiosqlite<1.0.0,>=0.20.0",
@@ -47,6 +45,7 @@ dependencies = [
     "posthog<4.0.0,>=3.6.6",
     "langchain-core==0.3.*",
     "langchain-community==0.3.*",
+    "langchain-postgres>=0.0.15",
 ]
 name = "dataline"
 version = "0.1.0"
