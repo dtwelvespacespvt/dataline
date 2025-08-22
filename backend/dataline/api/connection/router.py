@@ -155,14 +155,12 @@ async def update_connection(
     background_tasks.add_task(posthog_capture, "connection_updated")
     try:
         updated_connection = await connection_service.update_connection(session, connection_id, req)
+        return SuccessResponse(
+            data=GetConnectionOut(connection=updated_connection),
+        )
     except ValidationError as e:
         HTTPException(status_code=401, detail=e)
     # TODO: Simplify output structure here and on FE
-    return SuccessResponse(
-        data=GetConnectionOut(
-            connection=updated_connection,
-        ),
-    )
 
 
 @router.patch("/connection/{connection_id}/generate/descriptions")
@@ -216,6 +214,7 @@ async def generate_relationships_per_column(
         column_type: str,
         session: Annotated[AsyncSession, Depends(get_session)],
         connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks
 ) -> SuccessListResponse[RelationshipOut]:
     background_tasks.add_task(posthog_capture, "get_relationship_per_column")
 

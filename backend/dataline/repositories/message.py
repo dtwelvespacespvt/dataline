@@ -80,3 +80,38 @@ class MessageRepository(BaseRepository[MessageModel, MessageCreate, MessageUpdat
             )
         )
         return await self.list_unique(session, query=query)
+
+    async def get_prev_by_connection_and_user_with_sql_results(
+            self,
+            session: AsyncSession,
+            connection_id: UUID,
+            user_id: UUID,
+            n: int = 10
+    ) -> Sequence[MessageModel]:
+        latest_conversations_subquery = (
+            select(ConversationModel.id)
+            .where(
+                ConversationModel.connection_id == connection_id,
+                ConversationModel.user_id == user_id,
+            )
+            .order_by(ConversationModel.created_at.desc())
+            .limit(n)
+            .scalar_subquery()
+        )
+
+        query = (
+            select(MessageModel)
+            .join(ConversationModel, MessageModel.conversation_id == ConversationModel.id)
+            .outerjoin(
+                ResultModel,
+                (ResultModel.message_id == MessageModel.id)
+                & (ResultModel.type == QueryResultType.SQL_QUERY_STRING_RESULT.value),
+            )
+            .where(MessageModel.conversation_id.in_(latest_conversations_subquery))
+            .options(contains_eager(MessageModel.results))
+            .order_by(
+                ConversationModel.created_at.desc(),
+                MessageModel.created_at.desc(),
+            )
+        )
+        return await self.list_unique(session, query=query)

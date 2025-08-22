@@ -58,7 +58,7 @@ class QueryGraphService:
         self.tracer = None  # no tracing by default
 
     async def query(
-        self, query: str, options: QueryOptions, history: Sequence[BaseMessage] | None = None
+        self, query: str, options: QueryOptions, history: Sequence[BaseMessage] | None = None, long_term_memory: str | None =None
     ) -> AsyncGenerator[tuple[Sequence[BaseMessage] | None, Sequence[ResultType] | None], None]:
         # Setup tracing with langsmith if api key is provided
         if options.langsmith_api_key:
@@ -80,7 +80,7 @@ class QueryGraphService:
 
         initial_state = {
             "messages": [
-                *self.get_prompt_messages(query, history, top_k= top_k),
+                *self.get_prompt_messages(query, history, top_k= top_k, long_term_memory = long_term_memory),
             ],
             "results": [],
             "options": options,
@@ -118,16 +118,12 @@ class QueryGraphService:
         return graph
 
     def get_prompt_messages(
-        self, query: str, history: Sequence[BaseMessage], top_k: int, suffix: str = SQL_FUNCTIONS_SUFFIX
+        self, query: str, history: Sequence[BaseMessage], top_k: int, suffix: str = SQL_FUNCTIONS_SUFFIX, long_term_memory: str = None
     ):
         local_time = time.localtime()
         formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
-        prefix = SQL_PREFIX + "\n Current Time {} \n".format(str(formatted_time))
-
-        if self.connection and self.connection.config and self.connection.config.connection_prompt:
-            prefix = prefix + "\n" + self.connection.config.connection_prompt
-
-        prefix = prefix.format(dialect=self.toolkit.dialect, top_k=top_k)
+        prefix = SQL_PREFIX
+        prefix = prefix.format(dialect=self.toolkit.dialect, top_k=top_k, connection_prompt=self.connection.config.connection_prompt if self.connection.config and self.connection.config.connection_prompt else "", current_time =str(formatted_time), context = long_term_memory if long_term_memory else "")
 
         if not history:
             return [
