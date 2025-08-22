@@ -63,7 +63,7 @@ class PersistentChatMemory:
             }]
         )
 
-    async def get_relevant_memories(self, session: AsyncSession, query: str, k: int = config.default_memory_conversation_depth):
+    async def get_relevant_memories(self, session: AsyncSession, query: str, k: int = 2):
         """Retrieve relevant past conversations"""
 
         vectorstore = await self._get_vectorstore(session)

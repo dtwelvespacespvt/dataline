@@ -362,7 +362,7 @@ class ConversationService:
             return
 
         user_id = await self.auth_manager.get_user_id()
-        messages = await self.message_repo.get_prev_by_connection_and_user_with_sql_results(session, connection_id, user_id, n=2)
+        messages = await self.message_repo.get_prev_by_connection_and_user_with_sql_results(session, connection_id, user_id, n=config.default_memory_conversation_depth)
         logger.info("Building Memory for user {} with messages {}".format(user_id, len(messages)))
         conversation_doc = defaultdict(list)
         for message in messages:
