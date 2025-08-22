@@ -58,7 +58,6 @@ from dataline.utils.slack import slack_push
 from dataline.utils.utils import stream_event_str
 
 from dataline.auth import AuthManager, get_auth_manager
-from tests.api.conversation.conftest import user_info
 
 logger = logging.getLogger(__name__)
 
