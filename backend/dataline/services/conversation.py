@@ -22,7 +22,7 @@ from dataline.models.llm_flow.schema import (
     RenderableResultMixin,
     ResultType,
     SQLQueryStringResultContent,
-    StorableResultMixin,
+    StorableResultMixin, SQLQueryStringResult,
 )
 from dataline.models.message.schema import (
     BaseMessageType,
@@ -325,7 +325,7 @@ class ConversationService:
 
         for result in results:
             try:
-                sql_result = SQLQueryStringResultContent.model_validate_json(result)
+                sql_result = SQLQueryStringResult.model_validate(result)
                 ai_message += "\n" + sql_result.sql
             except ValidationError as e:
                 continue
