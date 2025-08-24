@@ -4,7 +4,7 @@ import re
 from typing import AsyncGenerator, cast, Dict, Annotated
 from uuid import UUID
 
-from black.trans import defaultdict
+from collections import defaultdict
 from fastapi import Depends
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from openai._exceptions import APIError
@@ -22,7 +22,7 @@ from dataline.models.llm_flow.schema import (
     RenderableResultMixin,
     ResultType,
     SQLQueryStringResultContent,
-    StorableResultMixin,
+    StorableResultMixin, SQLQueryStringResult,
 )
 from dataline.models.message.schema import (
     BaseMessageType,
@@ -58,7 +58,6 @@ from dataline.utils.slack import slack_push
 from dataline.utils.utils import stream_event_str
 
 from dataline.auth import AuthManager, get_auth_manager
-from tests.api.conversation.conftest import user_info
 
 logger = logging.getLogger(__name__)
 
@@ -326,7 +325,7 @@ class ConversationService:
 
         for result in results:
             try:
-                sql_result = SQLQueryStringResultContent.model_validate_json(result)
+                sql_result = SQLQueryStringResult.model_validate(result)
                 ai_message += "\n" + sql_result.sql
             except ValidationError as e:
                 continue
