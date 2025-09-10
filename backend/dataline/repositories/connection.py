@@ -68,3 +68,8 @@ class ConnectionRepository(BaseRepository[ConnectionModel, ConnectionCreate, Con
 
         query = select(self.model).where(self.model.id.in_(connection_uuids))
         return await self.list(session, query)
+
+    async def get_names_by_uuids(self, session: AsyncSession) -> dict[str,str]:
+        query = select(self.model.id, self.model.name)
+        result = await session.execute(query)
+        return {str(row[0]): row[1] for row in result.all()}

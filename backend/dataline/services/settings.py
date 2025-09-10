@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 from typing import Optional, Annotated, List
@@ -6,7 +7,6 @@ from uuid import uuid4
 import openai
 from fastapi import Depends, UploadFile
 from pydantic import SecretStr
-from uuid import UUID
 
 import requests
 
@@ -17,9 +17,11 @@ from dataline.models.media.model import MediaModel
 from dataline.models.user.enums import UserRoles
 from dataline.models.user.schema import UserOut, UserUpdateIn, UserWithKeys, UserUpdateAdmin
 from dataline.repositories.base import AsyncSession, NotFoundError
+from dataline.repositories.connection import ConnectionRepository
 from dataline.repositories.media import MediaCreate, MediaRepository
 from dataline.repositories.user import UserCreate, UserRepository, UserUpdate
 from dataline.sentry import opt_out_of_sentry, setup_sentry
+from dataline.utils.email import send_email, EmailMessage, new_db_addition_html
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +44,12 @@ class SettingsService:
         auth_manager: Annotated[AuthManager, Depends(get_auth_manager)],
         media_repo: MediaRepository = Depends(MediaRepository),
         user_repo: UserRepository = Depends(UserRepository),
+        connection_repo: ConnectionRepository = Depends(ConnectionRepository),
     ) -> None:
         self.media_repo = media_repo
         self.user_repo = user_repo
         self.auth_manager = auth_manager
+        self.connection_repo = connection_repo
 
     def prepare_media(self, session: AsyncSession, file: UploadFile) -> MediaCreate:
         # Make sure file is an image
@@ -155,12 +159,37 @@ class SettingsService:
     async def get_all_users(self, session: AsyncSession):
         return await self.user_repo.list_all(session)
 
-    async def update_users(self, session: AsyncSession, users:list[UserUpdateAdmin])->List[UserOut]:
-        update_user_list:List[UserOut]=[]
+    @staticmethod
+    async def notify_user_db_change(connections_map:dict[str,str], old_user_list: List[UserOut], updated_user_list:List[UserOut]):
+        if not config.has_email_notification():
+            return
+        old_user_map = {user.id: user for user in old_user_list}
+        for updated_user in updated_user_list:
+            new_connections = updated_user.config.connections if updated_user.config.connections else []
+            original_user = old_user_map.get(updated_user.id)
+            original_connections = original_user.config.connections if original_user and original_user.config else []
+
+            added_connections = [connection for connection in new_connections if connection not in original_connections]
+            if not added_connections:
+                continue
+            added_connections_str = ", ".join([connections_map.get(added_connection,"new") for added_connection in added_connections])
+            email_message = EmailMessage(from_email=config.BASE_MANDRILL_EMAIL, to_email=original_user.email, subject="DB access Granted", to_name=original_user.name, html=new_db_addition_html(added_connections_str), text="Hello")
+            try:
+                logger.info(f"Sending email to {original_user.email}")
+                send_email(email_message)
+            except Exception as e:
+                logger.error("Failed to send email to {}",original_user.email, e)
+
+    async def update_users(self, session: AsyncSession, users: list[UserUpdateAdmin]) -> List[UserOut]:
+        update_user_list: List[UserOut] = []
+        old_users = await self.user_repo.list_all(session)
+        connections_map = await self.connection_repo.get_names_by_uuids(session)
+        old_users_list :List[UserOut] = [UserOut.model_validate(user) for user in old_users]
         for data in users:
             user_update = UserUpdate.model_construct(**data.model_dump(exclude_unset=True))
             user = await self.user_repo.update_by_uuid(session, record_id=data.id, data=user_update)
-
             update_user_list.append(UserOut.model_validate(user))
+
+        asyncio.create_task(self.notify_user_db_change(connections_map, old_users_list, update_user_list))
 
         return update_user_list
