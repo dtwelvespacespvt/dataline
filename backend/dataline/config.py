@@ -72,9 +72,9 @@ class Config(BaseSettings):
     ALLOWED_EMAIL_ORIGINS: list[str] = []
 
     # MailChimp Config
-    MANDRILL_URL:str = "https://mandrillapp.com/api/1.0/messages/send"
-    MANDRILL_API_KEY:str  = None
-    BASE_MANDRILL_EMAIL:str = None
+    MANDRILL_URL: str| None = "https://mandrillapp.com/api/1.0/messages/send"
+    MANDRILL_API_KEY: str | None  = None
+    BASE_MANDRILL_EMAIL: str | None = None
 
 
     def has_email_notification(self):
