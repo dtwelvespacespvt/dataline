@@ -7,7 +7,7 @@ from dataline.config import config
 
 class EmailMessage(BaseModel):
     from_email: EmailStr
-    from_name: str = "Dataline App"
+    from_name: str = "Dataline"
     to_email: EmailStr
     to_name: str = "Recipient"
     subject: str
