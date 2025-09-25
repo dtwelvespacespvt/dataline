@@ -18,7 +18,7 @@ from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.messages import BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool, BaseToolkit
 from langgraph.prebuilt import ToolExecutor
-from pydantic import BaseModel, Field, SkipValidation
+from pydantic import BaseModel, Field, SkipValidation, ValidationError
 
 from dataline.models.llm_flow.schema import (
     ChartGenerationResult,
@@ -40,11 +40,15 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
     call,
 )
 from dataline.services.llm_flow.utils import DatalineSQLDatabase as SQLDatabase
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class QueryGraphStateUpdate(TypedDict):
     messages: Sequence[BaseMessage]
     results: Sequence[QueryResultSchema]
+    query_validation: bool
 
 
 class RunException(Exception):
@@ -207,7 +211,6 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                 f"""ERROR: Tables {wrong_tables} that you selected do not exist in the database.
             Available tables are the following, please select from them ONLY: "{'", "'.join(available_names)}"."""
             )
-
         return valid_tables
 
     def _run(
@@ -222,7 +225,19 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         valid_tables = self._validate_sanitize_table_names(table_names, available_names)
 
         self.table_names = list(valid_tables)
-        return self.db.get_table_info_no_throw(self.table_names)
+        table_metadata= ""
+        custom_table_data = getattr(self.db, "_custom_table_info", {})
+        for table_name in self.table_names:
+            table_info = custom_table_data.get(table_name.strip(), {})
+            for col in table_info.get("columns", []):
+                for relation in col.get("relationship"):
+                    related_table_name = relation.get("table")
+                    if related_table_name in table_names:
+                        from_col_ref = f"'{table_name}.{col.get('name')}'"
+                        to_col_ref = f"'{relation.get('schema_name')}.{related_table_name}.{relation.get('column')}'"
+                        metadata_line = f"-- Foreign Key: The {from_col_ref} column references {to_col_ref}. \n"
+                        table_metadata += metadata_line
+        return self.db.get_table_info(self.table_names) + ("\nSelected Table Relations: \n" + table_metadata if table_metadata else table_metadata)
 
     def get_response(  # type: ignore[misc]
         self,
@@ -300,7 +315,7 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
         results: list[QueryResultSchema] = []
 
         # Add SQL query to results
-        query_string_result = SQLQueryStringResult(sql=args["query"], for_chart=args["for_chart"])
+        query_string_result = SQLQueryStringResult(sql=args["query"], for_chart=args["for_chart"] if "for_chart" in args else False)
         results.append(query_string_result)
 
         # Attempt to link previous selected tables result to this query (backlinking, weird IK)
@@ -398,19 +413,40 @@ class _ListSQLTablesToolInput(BaseModel):
 
 
 class ListSQLTablesTool(BaseSQLDatabaseTool, BaseTool):
-    """Tool for getting tables names."""
+    """Tool for getting metadata about available tables."""
 
     name: str = ToolNames.LIST_SQL_TABLES
-    description: str = "Input is an empty string, output is a comma-separated list of tables in the database."
+    description: str = "Returns a list of table metadata including schema name, table name, table description. Input should be an empty string."
     args_schema: Type[BaseModel] = _ListSQLTablesToolInput
 
     def _run(  # type: ignore
         self,
         tool_input: str = "",
         run_manager: Optional[CallbackManagerForToolRun] = None,
-    ) -> list[str]:
-        """Get a comma-separated list of table names."""
-        return list(self.db.get_usable_table_names())
+    ) -> list[dict]:
+        """Returns metadata for all usable tables (name, description, columns)."""
+        table_metadata = []
+
+        usable_tables = self.db.get_usable_table_names()
+        custom_table_data = getattr(self.db, "_custom_table_info", {})
+
+        for table_name in usable_tables:
+            table_info = custom_table_data.get(table_name, {})
+            description = table_info.get("description", "")
+            # columns = [{"name": col.get("name"), "description": col.get("description"),
+            #             "possible_values": col.get("possible_values"),
+            #             "relationship": col.get("relationship"),
+            #             "type": col.get("type")
+            #             }
+            #            for col in table_info.get("columns", []) if "name" in col]
+
+            table_metadata.append({
+                "name": table_name,
+                "description": description,
+                # "columns": columns,
+            })
+
+        return table_metadata
 
 
 class SQLDatabaseToolkit(BaseToolkit):
@@ -433,9 +469,9 @@ class SQLDatabaseToolkit(BaseToolkit):
         list_sql_database_tool = ListSQLTablesTool(db=self.db)
         info_sql_database_tool_description = (
             "Input to this tool is a comma-separated list of tables, output is the "
-            "schema and sample rows for those tables."
+            "schema, possible values(if any) and its relationships with other table and sample rows for those tables."
             "Be sure that the tables actually exist by calling "
-            f"{list_sql_database_tool.name} first! "
+            f"{list_sql_database_tool.name} first!"
             "Example Input: table1, table2, table3"
         )
         info_sql_database_tool = InfoSQLDatabaseTool(db=self.db, description=info_sql_database_tool_description)
@@ -447,13 +483,13 @@ class SQLDatabaseToolkit(BaseToolkit):
             "will be returned. If an error is returned, rewrite the query, check the "
             "query, and try again. If you encounter an issue with Unknown column "
             f"'xxxx' in 'field list', use {info_sql_database_tool.name} "
-            "to query the correct table fields."
+            "to query the correct table fields. Don't the run same query multiple times"
         )
         query_sql_database_tool = QuerySQLDataBaseTool(db=self.db, description=query_sql_database_tool_description)
 
         tools = [
-            info_sql_database_tool,
             list_sql_database_tool,
+            info_sql_database_tool,
         ]
 
         if allow_execution:
@@ -472,15 +508,17 @@ class QueryGraphState(BaseModel):
     options: QueryOptions
     sql_toolkit: SQLDatabaseToolkit
     tool_executor: ToolExecutor
+    validation_query: Optional[str] = None
+    query_validation: Optional[bool] = False
 
     class Config:
         arbitrary_types_allowed = True
 
 
 def state_update(
-    messages: Sequence[BaseMessage] = [], results: Sequence[QueryResultSchema] = []
+    messages: Sequence[BaseMessage] = [], results: Sequence[QueryResultSchema] = [], query_validation:bool = False,
 ) -> QueryGraphStateUpdate:
-    return {"messages": messages, "results": results}
+    return {"messages": messages, "results": results, "query_validation": query_validation}
 
 
 class _ChartGeneratorToolInput(BaseModel):
@@ -512,20 +550,24 @@ class ChartGeneratorTool(StateUpdaterTool):
         results: list[QueryResultSchema] = []
 
         chart_type = ChartType[args["chart_type"]]
-
-        generated_chart = call(
-            "gpt-3.5-turbo",
-            response_model=GeneratedChart,
-            prompt_fn=generate_chart_prompt,
-            client_options=OpenAIClientOptions(
-                api_key=state.options.openai_api_key.get_secret_value(),
-                base_url=state.options.openai_base_url,
-            ),
-        )(
-            chart_type=chart_type,
-            request=args["request"],
-            chartjs_template=TEMPLATES[chart_type],
-        )
+        try:
+            generated_chart = call(
+                state.options.llm_model,
+                response_model=GeneratedChart,
+                prompt_fn=generate_chart_prompt,
+                client_options=OpenAIClientOptions(
+                    api_key=state.options.openai_api_key.get_secret_value(),
+                    base_url=state.options.openai_base_url,
+                ),
+            )(
+                chart_type=chart_type,
+                request=args["request"],
+                chartjs_template=TEMPLATES[chart_type],
+            )
+        except ValidationError as e:
+            tool_message = ToolMessage(content=f"ERROR: {e}", name=self.name, tool_call_id=call_id)
+            messages.append(tool_message)
+            return state_update(messages=messages)
 
         # Find the last data result
         last_data_result = None

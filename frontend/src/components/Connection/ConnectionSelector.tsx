@@ -1,14 +1,21 @@
 import ConnectionImage from "./DatabaseDialectImage";
 import { useState } from "react";
 import { IConnection, IConversation } from "../Library/types";
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
-import { useCreateConversation, useGetConnections } from "@/hooks";
+import { Cog6ToothIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { useCreateConversation, useGetConnections, useGetUserProfile } from "@/hooks";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { Button } from "../Catalyst/button";
+
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(" ");
+}
 
 export const ConnectionSelector = () => {
   const navigate = useNavigate();
   const [, setConversation] = useState<IConversation | null>();
-  const { data } = useGetConnections();
+  const { data, isFetching: isRefreshing, refetch } = useGetConnections();
+  const { data: userProfile } = useGetUserProfile();
+
   const createConnection = () => {
     navigate({ to: "/connection/new" });
   };
@@ -30,12 +37,28 @@ export const ConnectionSelector = () => {
     mutate({ id: connection.id, name: "Untitled chat" });
   }
 
+  const handleRefresh = () => {
+    refetch();
+  };
+
   return (
     <div className="bg-gray-900 w-full h-screen relative flex flex-col lg:mt-16">
       <div className="flex flex-col justify-center items-center lg:mt-0">
         <div className="w-full sm:w-3/4 md:w-3/4 rounded-xl p-6">
-          <div className="text-gray-50 text-md md:text-2xl font-semibold">
+          <div className="text-gray-50 text-md md:text-2xl font-semibold flex items-center gap-x-2">
             Select a connection
+            <Button
+              onClick={handleRefresh}
+              plain
+              disabled={isRefreshing}
+            >
+              <ArrowPathIcon
+                className={classNames(
+                  "w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6",
+                  isRefreshing ? "animate-spin" : ""
+                )}
+              />
+            </Button>
           </div>
           <div className="w-full grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 mt-4">
             {data?.connections?.map((connection) => (
@@ -63,21 +86,22 @@ export const ConnectionSelector = () => {
                   </div>
 
                   {/** ------ Connection Settings ------ */}
-                  <div className="flex flex-col justify-end items-end h-full">
-                    <Link
-                      to={`/connection/${connection.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent the click event from propagating to the parent container
-                      }}
-                      className="flex-none group w-10 h-10 p-1 flex justify-end items-end hover:bg-gray-600 rounded-md duration-100 transition-colors "
-                    >
-                      <Cog6ToothIcon className="text-gray-50 group-hover:-rotate-45 transition-transform duration-100" />
-                    </Link>
-                  </div>
+                  {userProfile?.role === "ADMIN" ?
+                    <div className="flex flex-col justify-end items-end h-full">
+                      <Link
+                        to={`/connection/${connection.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent the click event from propagating to the parent container
+                        }}
+                        className="flex-none group w-10 h-10 p-1 flex justify-end items-end hover:bg-gray-600 rounded-md duration-100 transition-colors "
+                      >
+                        <Cog6ToothIcon className="text-gray-50 group-hover:-rotate-45 transition-transform duration-100" />
+                      </Link>
+                    </div> : null}
                 </div>
               </div>
             ))}
-
+              {userProfile?.role === "ADMIN" ?
             <div
               className="hover:cursor-pointer md:hover:ring-2 ring-gray-600 border px-2 py-2 border-gray-700 aspect-square overflow-hidden rounded-lg flex flex-col justify-between hover:bg-gray-700 transition-all duration-75 w-full sm:w-auto sm:max-w-xs"
               onClick={createConnection}
@@ -110,6 +134,7 @@ export const ConnectionSelector = () => {
                 </div>
               </div>
             </div>
+            :null}
           </div>
         </div>
       </div>

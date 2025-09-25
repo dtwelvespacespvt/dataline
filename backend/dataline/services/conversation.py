@@ -1,11 +1,16 @@
+import asyncio
 import logging
-from typing import AsyncGenerator, cast
+import re
+from typing import AsyncGenerator, cast, Dict, Annotated
 from uuid import UUID
 
+from collections import defaultdict
 from fastapi import Depends
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from openai._exceptions import APIError
+from pydantic import ValidationError
 
+from dataline.config import config
 from dataline.errors import UserFacingError
 from dataline.models.conversation.schema import (
     ConversationOut,
@@ -17,7 +22,7 @@ from dataline.models.llm_flow.schema import (
     RenderableResultMixin,
     ResultType,
     SQLQueryStringResultContent,
-    StorableResultMixin,
+    StorableResultMixin, SQLQueryStringResult,
 )
 from dataline.models.message.schema import (
     BaseMessageType,
@@ -25,7 +30,7 @@ from dataline.models.message.schema import (
     MessageOptions,
     MessageOut,
     MessageWithResultsOut,
-    QueryOut,
+    QueryOut, MessageFeedBack,
 )
 from dataline.models.result.schema import ResultUpdate
 from dataline.repositories.base import AsyncSession
@@ -36,6 +41,7 @@ from dataline.repositories.conversation import (
 )
 from dataline.repositories.message import MessageRepository
 from dataline.repositories.result import ResultRepository
+from dataline.repositories.user import UserRepository
 from dataline.services.connection import ConnectionService
 from dataline.services.llm_flow.graph import QueryGraphService
 from dataline.services.llm_flow.llm_calls.conversation_title_generator import (
@@ -47,7 +53,11 @@ from dataline.services.llm_flow.llm_calls.mirascope_utils import (
     call,
 )
 from dataline.services.settings import SettingsService
+from dataline.utils.memory import PersistentChatMemory
+from dataline.utils.slack import slack_push
 from dataline.utils.utils import stream_event_str
+
+from dataline.auth import AuthManager, get_auth_manager
 
 logger = logging.getLogger(__name__)
 
@@ -56,22 +66,29 @@ class ConversationService:
     conversation_repo: ConversationRepository
     message_repo: MessageRepository
     result_repo: ResultRepository
-    connection_service: ConnectionService
-    settings_service: SettingsService
-
     def __init__(
         self,
+        auth_manager: Annotated[AuthManager,Depends(get_auth_manager)],
         conversation_repo: ConversationRepository = Depends(ConversationRepository),
         message_repo: MessageRepository = Depends(MessageRepository),
         result_repo: ResultRepository = Depends(ResultRepository),
         connection_service: ConnectionService = Depends(ConnectionService),
         settings_service: SettingsService = Depends(SettingsService),
+        user_repo: UserRepository = Depends(UserRepository),
+        persistent_chat_memory: PersistentChatMemory = Depends(PersistentChatMemory)
     ) -> None:
+        self.persistent_chat_memory = persistent_chat_memory
         self.conversation_repo = conversation_repo
         self.message_repo = message_repo
         self.result_repo = result_repo
         self.connection_service = connection_service
         self.settings_service = settings_service
+        self.auth_manager = auth_manager
+        self.user_repo = user_repo
+
+    connection_service: ConnectionService
+    settings_service: SettingsService
+    user_repo: UserRepository
 
     async def generate_title(self, session: AsyncSession, conversation_id: UUID) -> str:
         conversation = await self.get_conversation_with_messages(session, conversation_id)
@@ -104,7 +121,7 @@ class ConversationService:
         name: str,
     ) -> ConversationOut:
         conversation = await self.conversation_repo.create(
-            session, ConversationCreate(connection_id=connection_id, name=name)
+            session, ConversationCreate(connection_id=connection_id, name=name, user_id=await self.auth_manager.get_user_id())
         )
         return ConversationOut.model_validate(conversation)
 
@@ -118,13 +135,17 @@ class ConversationService:
         conversation = await self.conversation_repo.get_with_messages_with_results(session, conversation_id)
         return ConversationWithMessagesWithResultsOut.from_conversation(conversation)
 
-    async def get_conversations(self, session: AsyncSession) -> list[ConversationWithMessagesWithResultsOut]:
-        conversations = await self.conversation_repo.list_with_messages_with_results(session)
+    async def get_conversations(self, session: AsyncSession, skip:int=0, limit=10) -> list[ConversationWithMessagesWithResultsOut]:
+        conversations = await self.conversation_repo.list_with_messages_with_results_user(session, await self.auth_manager.get_user_id(), skip, limit)
         return [
             ConversationWithMessagesWithResultsOut.from_conversation(conversation) for conversation in conversations
         ]
 
     async def delete_conversation(self, session: AsyncSession, conversation_id: UUID) -> None:
+        try:
+            await self.persistent_chat_memory.delete_conversation_memory(session, conversation_id)
+        except Exception as e:
+            logger.error("Error while deleting memory for conversation_id: {} error:{}".format(conversation_id, e))
         await self.conversation_repo.delete_by_uuid(session, record_id=conversation_id)
 
     async def update_conversation_name(
@@ -134,6 +155,35 @@ class ConversationService:
             session, conversation_id, ConversationUpdate(name=name)
         )
         return ConversationOut.model_validate(conversation)
+
+    @classmethod
+    def _add_glossary_util(cls, glossary:Dict[str,str], query:str, history:list[BaseMessage])->str:
+        pattern = f"<(.+?)>"
+        glossary_words =  re.findall(pattern, query)
+        for message in history:
+            if message.type == BaseMessageType.HUMAN.value:
+                glossary_words.extend(re.findall(pattern, message.content))
+        if not glossary_words:
+            return query
+        glossary_words = set(glossary_words)
+        query += "\n\n#####Glossary#######\n"
+        for glossary_word in glossary_words:
+            query += glossary_word +": "+glossary.get(glossary_word)+"\n"
+        return query
+
+    @classmethod
+    def _add_reverse_look_up_util(cls, unique_value_dict: Dict[str,list[tuple[str,str]]], query:str):
+
+        pattern = r"\[(.+?)\]"
+        keywords = re.findall(pattern, query)
+        if not keywords:
+            return query
+        keywords = set(keywords)
+        query += "\n\n#####Table Look Up#######\n"
+        for keyword in keywords:
+            for city, table in unique_value_dict.get(keyword , []):
+                query += "{}: Column:  {} , Table:  {} \n".format(keyword, city, table)
+        return query
 
     async def query(
         self,
@@ -150,15 +200,29 @@ class ConversationService:
 
         # Create query graph
         query_graph = QueryGraphService(connection=connection)
-        history = await self.get_conversation_history(session, conversation_id)
+        history = await self.get_conversation_history(session, conversation.connection_id, conversation.id)
 
+        # Build Memory
+        try:
+            await self.build_memory(session, connection.id)
+        except Exception as e:
+            logger.error("Cant Build memory for userId: {} for connection: {} error: {}".format(await self.auth_manager.get_user_id(), connection.id, e))
         messages: list[BaseMessage] = []
         results: list[ResultType] = []
         # Perform query and execute graph
         langsmith_api_key = user_with_model_details.langsmith_api_key
+        cleaned_query = self._add_glossary_util(connection.glossary, query, history)
+        cleaned_query =  cleaned_query.strip(' \t\n\r')
+        if connection.unique_value_dict is not None:
+            cleaned_query = self._add_reverse_look_up_util(connection.unique_value_dict, cleaned_query)
 
-        async for chunk in query_graph.query(
-            query=query,
+        long_term_memory = None
+        try:
+            long_term_memory = await self.persistent_chat_memory.get_relevant_memories(session, cleaned_query)
+        except Exception as e:
+            logger.error("Error Getting Memory For user: {} connectionId: {} e: {}".format(await self.auth_manager.get_user_id(), connection.id, e))
+        async for chunk in (query_graph.query(
+            query=cleaned_query,
             options=QueryOptions(
                 secure_data=secure_data,
                 openai_api_key=user_with_model_details.openai_api_key.get_secret_value(),  # type: ignore
@@ -167,7 +231,8 @@ class ConversationService:
                 llm_model=user_with_model_details.preferred_openai_model,
             ),
             history=history,
-        ):
+            long_term_memory=long_term_memory
+        )):
             (chunk_messages, chunk_results) = chunk
             if chunk_messages is not None:
                 messages.extend(chunk_messages)
@@ -251,13 +316,26 @@ class ConversationService:
                 message=MessageOut.model_validate(stored_ai_message), results=serialized_results
             ),
         )
+
+        await self.save_memory(session, cleaned_query, stored_ai_message.content, results, conversation_id, connection.id)
+
         yield stream_event_str(event=QueryStreamingEventType.STORED_MESSAGES.value, data=query_out.model_dump_json())
 
-    async def get_conversation_history(self, session: AsyncSession, conversation_id: UUID) -> list[BaseMessage]:
+    async def save_memory(self, session:AsyncSession, user_message: str, ai_message:str, results:list, conversation_id:UUID, connection_id:UUID):
+
+        for result in results:
+            try:
+                sql_result = SQLQueryStringResult.model_validate(result)
+                ai_message += "\n" + sql_result.sql
+            except ValidationError as e:
+                continue
+        await self.persistent_chat_memory.add_conversation(session, user_message, ai_message, conversation_id, connection_id)
+
+    async def get_conversation_history(self, session: AsyncSession, connection_id: UUID, conversation_id: UUID) -> list[BaseMessage]:
         """
         Get the last 10 messages of a conversation (AI, Human, and System)
         """
-        messages = await self.message_repo.get_by_conversation_with_sql_results(session, conversation_id, n=10)
+        messages = await self.message_repo.get_by_connection_and_user_with_sql_results(session, connection_id, conversation_id, await self.auth_manager.get_user_id(),  n=config.default_conversation_history_limit)
         base_messages = []
         for message in reversed(messages):  # Reverse to get the oldest messages first (chat format)
             if message.role == BaseMessageType.HUMAN.value:
@@ -273,6 +351,46 @@ class ConversationService:
             elif message.role == BaseMessageType.SYSTEM.value:
                 base_messages.append(SystemMessage(content=message.content))
             else:
-                logger.error(Exception(f"Unknown message role: {message.role}"))
+                logger.exception(Exception(f"Unknown message role: {message.role}"))
 
         return base_messages
+
+    async def build_memory(self, session:AsyncSession, connection_id: UUID):
+
+        if await self.persistent_chat_memory.collection_exists(session, connection_id):
+            return
+
+        user_id = await self.auth_manager.get_user_id()
+        messages = await self.message_repo.get_prev_by_connection_and_user_with_sql_results(session, connection_id, user_id, n=config.default_memory_conversation_depth)
+        logger.info("Building Memory for user {} with messages {}".format(user_id, len(messages)))
+        conversation_doc = defaultdict(list)
+        for message in messages:
+            conversation_doc[message.conversation_id].append(message)
+        for conversation_id, conversations in conversation_doc.items():
+            human_content = ""
+            ai_content = ""
+            for message in conversations:
+                if message.role == BaseMessageType.HUMAN.value:
+                    human_content = ""
+                if message.results:
+                    sqls = [
+                        SQLQueryStringResultContent.model_validate_json(result.content).sql
+                        for result in message.results
+                    ]
+                    ai_content += f"Generated SQL: {', '.join(sqls)} \n"
+            if human_content or ai_content:
+                await self.persistent_chat_memory.add_conversation(session, human_content, ai_content, conversation_id, connection_id)
+
+
+    async def update_feedback(self, session: AsyncSession, message_feedback: MessageFeedBack) -> None:
+        conversation_uuid = await self.message_repo.update_feedback(session, message_feedback)
+        user_info = await self.auth_manager.get_user_info()
+        feedback_action = "👍 *Upvoted*" if message_feedback.is_positive else "👎 *Downvoted*"
+        asyncio.create_task(slack_push(
+            message=(
+                f"📝 *New Message Feedback*\n"
+                f"{feedback_action} by *{user_info.id}* (`{user_info.name}`)\n"
+                f"• *Message ID:* `{message_feedback.message_id}`\n"
+                f"• *Conversation ID:* `{conversation_uuid}`\n"
+                f"• *Feedback:* {message_feedback.content}" if message_feedback.content else ""
+            )))

@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from dataline.auth import admin_required
+from dataline.errors import ValidationError
 from dataline.models.connection.schema import (
     DB_SAMPLES,
     ConnectionOut,
@@ -13,7 +15,7 @@ from dataline.models.connection.schema import (
     ConnectSampleIn,
     FileConnectionType,
     GetConnectionOut,
-    SampleOut,
+    SampleOut, RelationshipOut,
 )
 from dataline.old_models import SuccessListResponse, SuccessResponse
 from dataline.repositories.base import AsyncSession, get_session
@@ -32,6 +34,7 @@ async def connect_db(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": False, "is_file": False})
 
@@ -45,6 +48,7 @@ async def connect_sample_db(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": True, "is_file": True})
 
@@ -68,6 +72,7 @@ async def connect_db_from_file(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[ConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_created", properties={"is_sample": False, "is_file": True})
 
@@ -98,7 +103,7 @@ async def connect_db_from_file(
         return SuccessResponse(data=connection)
 
 
-@router.get("/connection/{connection_id}")
+@router.get("/api/connection/{connection_id}")
 async def get_connection(
     connection_id: UUID,
     session: AsyncSession = Depends(get_session),
@@ -120,19 +125,19 @@ async def get_connections(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
 ) -> SuccessResponse[ConnectionsOut]:
-    connections = await connection_service.get_connections(session)
+    connections = await connection_service.get_connections_by_user_uuid(session)
     return SuccessResponse(
         data=ConnectionsOut(
             connections=connections,
         ),
     )
 
-
 @router.delete("/connection/{connection_id}")
 async def delete_connection(
     connection_id: UUID,
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[None]:
     await connection_service.delete_connection(session, connection_id)
     return SuccessResponse()
@@ -145,16 +150,96 @@ async def update_connection(
     session: Annotated[AsyncSession, Depends(get_session)],
     connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
     background_tasks: BackgroundTasks,
+    _:None = Depends(admin_required)
 ) -> SuccessResponse[GetConnectionOut]:
     background_tasks.add_task(posthog_capture, "connection_updated")
+    try:
+        updated_connection = await connection_service.update_connection(session, connection_id, req)
+        return SuccessResponse(
+            data=GetConnectionOut(connection=updated_connection),
+        )
+    except ValidationError as e:
+        HTTPException(status_code=401, detail=e)
+    # TODO: Simplify output structure here and on FE
 
-    updated_connection = await connection_service.update_connection(session, connection_id, req)
+
+@router.patch("/connection/{connection_id}/generate/descriptions")
+async def generate_descriptions(
+        connection_id: UUID,
+        req: ConnectionUpdateIn,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+        _:None = Depends(admin_required)
+) -> SuccessResponse[GetConnectionOut]:
+    background_tasks.add_task(posthog_capture, "description_updated")
+
+    updated_connection = await connection_service.generate_descriptions(session, connection_id, req)
 
     # TODO: Simplify output structure here and on FE
     return SuccessResponse(
         data=GetConnectionOut(
             connection=updated_connection,
         ),
+    )
+
+
+@router.patch("/connection/{connection_id}/generate/relationships")
+async def generate_relationships(
+        connection_id: UUID,
+        req: ConnectionUpdateIn,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+        _:None = Depends(admin_required)
+) -> SuccessResponse[GetConnectionOut]:
+    background_tasks.add_task(posthog_capture, "relationships_updated")
+
+    updated_connection = await connection_service.generate_relationships(session, connection_id, req)
+
+    # TODO: Simplify output structure here and on FE
+    return SuccessResponse(
+        data=GetConnectionOut(
+            connection=updated_connection,
+        ),
+    )
+
+
+@router.get("/connection/{connection_id}/generate/relationships/{schema}/{table}/{column}/{column_type}")
+async def generate_relationships_per_column(
+        connection_id: UUID,
+        schema: str,
+        table: str,
+        column: str,
+        column_type: str,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks
+) -> SuccessListResponse[RelationshipOut]:
+    background_tasks.add_task(posthog_capture, "get_relationship_per_column")
+
+    result = await connection_service.generate_relationships_per_column(session, connection_id, schema, table, column, column_type)
+
+    return SuccessListResponse(
+        data=result
+    )
+
+@router.get("/connection/{connection_id}/getPossibleValues/{schema}/{table}/{column}")
+async def get_possible_values_per_column(
+        connection_id: UUID,
+        schema: str,
+        table: str,
+        column: str,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)],
+        background_tasks: BackgroundTasks,
+) -> SuccessListResponse[object]:
+    background_tasks.add_task(posthog_capture, "get_possible_values_per_column")
+
+    result = await connection_service.get_possible_values_per_column(session, connection_id, schema, table, column)
+
+    return SuccessListResponse(
+        data=result
     )
 
 
@@ -179,3 +264,13 @@ async def refresh_connection_schema(
 
     updated_connection = await connection_service.refresh_connection_schema(session, connection_id)
     return SuccessResponse(data=updated_connection)
+
+@router.get("/connection/{connection_id}/getDict")
+async def get_dict(
+        connection_id:UUID,
+        session: Annotated[AsyncSession, Depends(get_session)],
+        connection_service: Annotated[ConnectionService, Depends(ConnectionService)]
+        ) -> SuccessResponse[dict]:
+
+    all_dicts =  await connection_service.get_all_dicts(session, connection_id)
+    return SuccessResponse(data = all_dicts)

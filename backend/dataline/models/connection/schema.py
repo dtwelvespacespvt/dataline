@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -8,19 +8,44 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dataline.config import config
 
 
-class ConnecitonSchemaTable(BaseModel):
+class ConnectionSchemaTableColumnRelationship(BaseModel):
+    schema_name: Optional[str] = None
+    table: Optional[str] = None
+    column: Optional[str] = None
+    enabled: Optional[bool] = False
+
+
+class ConnectionSchemaTableColumn(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    possible_values: Optional[list[str]] = []
+    primary_key: Optional[bool] = False
+    description: Optional[str] = None
+    relationship: Optional[list[ConnectionSchemaTableColumnRelationship]] = []
+    enabled: Optional[bool] = False
+    reverse_look_up: Optional[bool] = False
+
+
+class ConnectionSchemaTable(BaseModel):
     name: str
     enabled: bool
+    columns: Optional[list[ConnectionSchemaTableColumn]] = []
+    description: Optional[str] = None
 
 
 class ConnectionSchema(BaseModel):
     name: str
-    tables: list[ConnecitonSchemaTable]
+    tables: list[ConnectionSchemaTable]
     enabled: bool
 
 
 class ConnectionOptions(BaseModel):
     schemas: list[ConnectionSchema]
+
+class ConnectionConfigSchema(BaseModel):
+    validation_query: Optional[str] = None
+    connection_prompt: Optional[str] = None
+    default_table_limit: Optional[int] = None
 
 
 class Connection(BaseModel):
@@ -34,6 +59,9 @@ class Connection(BaseModel):
     type: str
     is_sample: bool
     options: Optional[ConnectionOptions] = None
+    glossary: Optional[Dict[str,Any]] = None
+    unique_value_dict: Optional[dict[str,list[tuple[str,str]]]] = None
+    config: Optional[ConnectionConfigSchema] = None
 
 
 class ConnectionOut(Connection):
@@ -95,6 +123,13 @@ class SampleOut(BaseModel):
     link: str
 
 
+class RelationshipOut(BaseModel):
+    schema_name: str
+    table: str
+    column: str
+    enabled: bool
+
+
 def validate_dsn(value: str) -> str:
     # Regular expression pattern for matching DSNs
     # Try sqlite first
@@ -140,6 +175,8 @@ def validate_dsn(value: str) -> str:
         value = value.replace("mysql", "mysql+pymysql", 1)
     elif value.startswith("mssql"):
         value = value.replace("mssql", "mssql+pyodbc", 1)
+    elif value.startswith("redshift"):
+        value = value.replace("redshift", "redshift+redshift_connector", 1)
 
     return value
 
@@ -158,6 +195,8 @@ class ConnectionUpdateIn(BaseModel):
     name: Optional[str] = None
     dsn: Optional[str] = None
     options: Optional[ConnectionOptions] = None
+    glossary: Dict[str,str] = None
+    config: Optional[ConnectionConfigSchema] = None
 
     @field_validator("dsn")
     def validate_dsn_format(cls, value: str) -> str:

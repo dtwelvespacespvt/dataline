@@ -7,7 +7,7 @@ import {
 } from "@headlessui/react";
 import { UserCircleIcon } from "@heroicons/react/24/solid";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useGetAvatar } from "@/hooks";
+import { useGetAvatar, useGetUserProfile } from "@/hooks";
 import { Fragment } from "react";
 import { hasAuthQuery, useLogout } from "@/hooks/auth";
 import { useQuery } from "@tanstack/react-query";
@@ -19,13 +19,17 @@ function classNames(...classes: string[]) {
 // Create component with prop topRight boolean
 export const ProfileDropdown = ({ topRight }: { topRight?: boolean }) => {
   const { data: avatarUrl } = useGetAvatar();
+  const { data: userProfile } = useGetUserProfile();
   const navigate = useNavigate();
   const { mutate: logout } = useLogout({
     onLogout: () => navigate({ to: "/" }),
   });
   const { data: hasAuthEnabled } = useQuery(hasAuthQuery());
 
-  const userNavigation = [{ name: "Settings", href: "/user" }];
+  const userNavigation = [
+    { name: "Settings", href: "/user" },
+    ...(userProfile?.role === "ADMIN" ? [{ name: "Admin", href: "/admin" }] : [])
+  ];
 
   return (
     <>

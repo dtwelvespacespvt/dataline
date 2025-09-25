@@ -63,6 +63,20 @@ export function useLogin() {
   });
 }
 
+export function useGoogleLogin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ credential }: { credential: string }) => 
+      api.googleLogin(credential),
+    onError() {
+      enqueueSnackbar("Google authentication failed", { variant: "error" });
+    },
+    onSuccess() {
+      queryClient.setQueryData(isAuthenticatedQuery().queryKey, true);
+    },
+  });
+}
+
 export function useLogout({ onLogout }: { onLogout: () => void }) {
   // on successful logout, set isAuthenticatedQuery to false
   // navigates to Router.Login (using the onLogout function)

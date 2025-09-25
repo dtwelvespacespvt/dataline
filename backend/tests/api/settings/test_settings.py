@@ -10,24 +10,18 @@ from openai.resources.models import Models as OpenAIModels
 
 logger = logging.getLogger(__name__)
 
-
+@pytest.mark.usefixtures("user_info")
 @pytest.mark.asyncio
 async def test_update_user_info_name(client: TestClient) -> None:
     user_in = {"name": "John"}
     response = client.patch("/settings/info", json=user_in)
 
     assert response.status_code == 200
-    assert response.json() == {
-        "data": {
-            "name": "John",
-            "openai_api_key": None,
-            "preferred_openai_model": None,
-            "langsmith_api_key": None,
-            "openai_base_url": None,
-            "sentry_enabled": True,
-            "analytics_enabled": True,
-        },
-    }
+
+    response_data = response.json().get("data")
+
+    assert response_data is not None
+    assert response_data["name"] == "John"
 
 
 @pytest.mark.asyncio
@@ -133,6 +127,7 @@ def avatar_file() -> tuple[FileTuple, bytes]:
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_upload_avatar(client: TestClient, avatar_file: tuple[FileTuple, bytes]) -> None:
     file, file_data = avatar_file
     base64_encoded = b64encode(file_data).decode("utf-8")
@@ -155,6 +150,7 @@ async def avatar(client: TestClient, avatar_file: tuple[FileTuple, bytes]) -> st
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("user_info")
 async def test_get_avatar(client: TestClient, avatar: str) -> None:
     # Send a GET request to the /settings/avatar endpoint
     response = client.get("/settings/avatar")

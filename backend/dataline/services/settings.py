@@ -1,20 +1,27 @@
+import asyncio
 import logging
 import mimetypes
-from typing import Optional
+from typing import Optional, Annotated, List
 from uuid import uuid4
 
 import openai
 from fastapi import Depends, UploadFile
 from pydantic import SecretStr
 
+import requests
+
+from dataline.auth import AuthManager, get_auth_manager
 from dataline.config import config
 from dataline.errors import ValidationError
 from dataline.models.media.model import MediaModel
-from dataline.models.user.schema import UserOut, UserUpdateIn, UserWithKeys
+from dataline.models.user.enums import UserRoles
+from dataline.models.user.schema import UserOut, UserUpdateIn, UserWithKeys, UserUpdateAdmin
 from dataline.repositories.base import AsyncSession, NotFoundError
+from dataline.repositories.connection import ConnectionRepository
 from dataline.repositories.media import MediaCreate, MediaRepository
 from dataline.repositories.user import UserCreate, UserRepository, UserUpdate
 from dataline.sentry import opt_out_of_sentry, setup_sentry
+from dataline.utils.email import send_email, EmailMessage, new_db_addition_html
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +41,17 @@ class SettingsService:
 
     def __init__(
         self,
+        auth_manager: Annotated[AuthManager, Depends(get_auth_manager)],
         media_repo: MediaRepository = Depends(MediaRepository),
         user_repo: UserRepository = Depends(UserRepository),
+        connection_repo: ConnectionRepository = Depends(ConnectionRepository),
     ) -> None:
         self.media_repo = media_repo
         self.user_repo = user_repo
+        self.auth_manager = auth_manager
+        self.connection_repo = connection_repo
 
-    async def upload_media(self, session: AsyncSession, file: UploadFile) -> MediaModel:
+    def prepare_media(self, session: AsyncSession, file: UploadFile) -> MediaCreate:
         # Make sure file is an image
         if not file.content_type or not file.content_type.startswith("image/"):
             raise ValidationError("File must be a valid image")
@@ -61,33 +72,37 @@ class SettingsService:
         # Upload file blob
         file_blob = file.file.read()
 
-        media_create = MediaCreate(key=file_name, blob=file_blob)
-        return await self.media_repo.create(session, data=media_create)
+        return MediaCreate(key=file_name, blob=file_blob)
 
-    async def upload_avatar(self, session: AsyncSession, file: UploadFile) -> MediaModel:
-        # Delete old avatar
-        old_avatar = await self.get_avatar(session)
-        if old_avatar:
-            await self.media_repo.delete_by_uuid(session, old_avatar.id)
-
-        return await self.upload_media(session, file)
+    async def upload_avatar(self, session: AsyncSession, file: UploadFile) -> bytes:
+        media = self.prepare_media(session, file)
+        return await self.user_repo.update_avatar_blob(session, media.blob, await self.auth_manager.get_user_id())
 
     async def get_avatar(self, session: AsyncSession) -> Optional[MediaModel]:
-        media_instances = await self.media_repo.list_all(session)
-        return media_instances[0] if media_instances else None
+        user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
+        if user_info.avatar_blob:
+            return MediaModel(blob=user_info.avatar_blob, key=user_info.name)
+
+        if user_info.avatar_url:
+            r = requests.get(user_info.avatar_url)
+            return MediaModel(blob=r.content, key=user_info.name)
+
+        return None
 
     async def update_user_info(self, session: AsyncSession, data: UserUpdateIn) -> UserOut:
         # Check if user exists
         user = None
-        user_info = await self.user_repo.get_one_or_none(session)
-        if user_info is None:
+        user_id = await self.auth_manager.get_user_id()
+        user_info = await self.user_repo.get_by_uuid(session, user_id) if user_id else None
+        if not user_id or not user_info:
             # Create user with data
             user_create = UserCreate.model_construct(**data.model_dump(exclude_unset=True))
+            user_create.role = UserRoles.ADMIN.value
             if user_create.openai_api_key and user_create.preferred_openai_model is None:
                 user_create.preferred_openai_model = (
                     config.default_model
                     if model_exists(user_create.openai_api_key, config.default_model, user_create.openai_base_url)
-                    else "gpt-3.5-turbo"
+                    else "gpt-5-mini"
                 )
             user = await self.user_repo.create(session, user_create)
             if data.sentry_enabled:  # by default, Sentry is off if no user in the db
@@ -123,14 +138,14 @@ class SettingsService:
         return UserOut.model_validate(user)
 
     async def get_user_info(self, session: AsyncSession) -> UserOut:
-        user_info = await self.user_repo.get_one_or_none(session)
+        user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
         if user_info is None:
             raise NotFoundError("No user or multiple users found")
 
         return UserOut.model_validate(user_info)
 
     async def get_model_details(self, session: AsyncSession) -> UserWithKeys:
-        user_info = await self.user_repo.get_one_or_none(session)
+        user_info = await self.user_repo.get_by_uuid(session, await self.auth_manager.get_user_id())
         if user_info is None:
             raise NotFoundError("No user found. Please setup your application.")
 
@@ -139,3 +154,42 @@ class SettingsService:
 
         user_info.preferred_openai_model = user_info.preferred_openai_model or config.default_model
         return UserWithKeys.model_validate(user_info)
+
+
+    async def get_all_users(self, session: AsyncSession):
+        return await self.user_repo.list_all(session)
+
+    @staticmethod
+    async def notify_user_db_change(connections_map:dict[str,str], old_user_list: List[UserOut], updated_user_list:List[UserOut]):
+        if not config.has_email_notification():
+            return
+        old_user_map = {user.id: user for user in old_user_list}
+        for updated_user in updated_user_list:
+            new_connections = updated_user.config.connections if updated_user.config.connections else []
+            original_user = old_user_map.get(updated_user.id)
+            original_connections = original_user.config.connections if original_user and original_user.config else []
+
+            added_connections = [connection for connection in new_connections if connection not in original_connections]
+            if not added_connections:
+                continue
+            added_connections_str = ", ".join([connections_map.get(added_connection,"new") for added_connection in added_connections])
+            email_message = EmailMessage(from_email=config.BASE_MANDRILL_EMAIL, to_email=original_user.email, subject="DB access Granted", to_name=original_user.name, html=new_db_addition_html(added_connections_str), text="Hello")
+            try:
+                logger.info(f"Sending email to {original_user.email}")
+                send_email(email_message)
+            except Exception as e:
+                logger.error("Failed to send email to {}",original_user.email, e)
+
+    async def update_users(self, session: AsyncSession, users: list[UserUpdateAdmin]) -> List[UserOut]:
+        update_user_list: List[UserOut] = []
+        old_users = await self.user_repo.list_all(session)
+        connections_map = await self.connection_repo.get_names_by_uuids(session)
+        old_users_list :List[UserOut] = [UserOut.model_validate(user) for user in old_users]
+        for data in users:
+            user_update = UserUpdate.model_construct(**data.model_dump(exclude_unset=True))
+            user = await self.user_repo.update_by_uuid(session, record_id=data.id, data=user_update)
+            update_user_list.append(UserOut.model_validate(user))
+
+        asyncio.create_task(self.notify_user_db_change(connections_map, old_users_list, update_user_list))
+
+        return update_user_list

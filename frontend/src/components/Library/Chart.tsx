@@ -13,6 +13,8 @@ import {
   ArrowPathIcon,
   ClipboardIcon,
   MinusIcon,
+  ArrowsPointingOutIcon,
+  ArrowsPointingInIcon,
 } from "@heroicons/react/24/outline";
 import { useRefreshChartData } from "@/hooks";
 import { Select } from "@catalyst/select";
@@ -58,6 +60,7 @@ const Chart = ({
   const [createdAt, setCreatedAt] = useState<Date>(initialCreatedAt);
   const [chartData, setChartData] = useState<ChartConfiguration>(initialData);
   const [minimized, setMinimized] = useState(minimize || false);
+  const [fullscreenToggle, setFullscreenToggle] = useState(false);
 
   // We cannot transition from a scatter chart into a basic chart type (line, bar, doughnut)
   // since scatter charts have a different data structure (x and y are numbers)
@@ -65,6 +68,7 @@ const Chart = ({
 
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<ChartJS | null>(null); // Add a useRef to store the chart instance
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Update the chart when the tab becomes visible again after a while
   useEffect(() => {
@@ -175,6 +179,24 @@ const Chart = ({
     }
   };
 
+  const goFullscreen = (element: HTMLElement | null) => {
+  if (!document.fullscreenElement) {
+    if (!element) return;
+    if (element.requestFullscreen) {
+      element.requestFullscreen();
+    } else if ((element as any).webkitRequestFullscreen) { /* Safari */
+      (element as any).webkitRequestFullscreen();
+    } else if ((element as any).msRequestFullscreen) { /* IE11 */
+      (element as any).msRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+  setFullscreenToggle(!fullscreenToggle);
+};
+
   const updateChartType = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const oldType = chartData.type;
     const newType = e.target.value as keyof ChartTypeRegistry;
@@ -238,7 +260,7 @@ const Chart = ({
       label="Chart"
       classes="bg-gray-900"
     >
-      <div className="pt-8 md:px-4 relative">
+      <div className="pt-8 md:px-4 relative" ref={chartContainerRef}>
         <canvas ref={chartRef} className="overflow-hidden rounded-xl" />
 
         {createdAt && (
@@ -275,6 +297,22 @@ const Chart = ({
           <CustomTooltip hoverText="Refresh">
             <button tabIndex={-1} onClick={triggerRefreshChart} className="p-1">
               <ArrowPathIcon className="w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6" />
+            </button>
+          </CustomTooltip>
+          
+          <CustomTooltip hoverText="Fullscreen">
+            <button
+              tabIndex={-1}
+              onClick={() => goFullscreen(chartContainerRef.current)}
+              className="p-1"
+            >
+              {
+                fullscreenToggle ? (
+                  <ArrowsPointingInIcon className="w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6" />
+                ) : (
+                  <ArrowsPointingOutIcon className="w-6 h-6 [&>path]:stroke-[2] group-hover:-rotate-6" />
+                )
+              }
             </button>
           </CustomTooltip>
 

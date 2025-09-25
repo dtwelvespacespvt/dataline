@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import os
 
 from pydantic_settings import BaseSettings
 
@@ -10,6 +11,8 @@ IS_BUNDLED = bool(getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"))
 
 USER_DATA_DIR = user_data_dir(appname="DataLine")
 
+db_connection_string = os.environ.get("db_connection_string", "")
+db_type = os.environ.get("db_type", "sqlite")
 
 class EnvironmentType(str):
     development = "development"
@@ -22,6 +25,10 @@ class Config(BaseSettings):
     # Current dir / db.sqlite3
     sqlite_path: str = str(Path(USER_DATA_DIR) / "db.sqlite3")
     sqlite_echo: bool = False
+    use_sqlite: bool = db_type == "sqlite"
+    connection_string: str = db_connection_string
+    type: str = db_type
+    echo: bool = False
 
     # This is where all uploaded files are stored (ex. uploaded sqlite DBs)
     data_directory: str = str(Path(USER_DATA_DIR) / "data")
@@ -31,7 +38,7 @@ class Config(BaseSettings):
     sample_titanic_path: str = str(Path(__file__).parent.parent / "samples" / "titanic.sqlite3")
     sample_spotify_path: str = str(Path(__file__).parent.parent / "samples" / "spotify.sqlite3")
 
-    default_model: str = "gpt-3.5-turbo"
+    default_model: str = "gpt-5-mini"
     templates_path: Path = Path(__file__).parent.parent / "templates"
     assets_path: Path = Path(__file__).parent.parent / "assets"
 
@@ -46,12 +53,35 @@ class Config(BaseSettings):
 
     # CORS settings
     allowed_origins: str = (
-        "http://localhost:7377,http://localhost:5173,http://0.0.0.0:7377,http://0.0.0.0:5173,http://127.0.0.1:7377,http://127.0.0.1:5173"  # comma separated list of origins
+        "http://localhost:7377,http://localhost:5173,http://0.0.0.0:7377,http://0.0.0.0:5173,http://127.0.0.1:7377,"
+        "http://127.0.0.1:5173"  # comma separated list of origins
     )
+
+    slack_url: str | None = None
+
+    vector_db_url: str | None = None
+    vector_db_type: str | None = None
+    default_memory_conversation_depth: int = 3
+    default_embedding_model: str = "text-embedding-3-small"
+
+    default_conversation_history_limit: int = 1
+    default_sql_row_limit: int = 200
+    JWT_SECRET: str | None= None
+    JWT_ALGORITHM: str = "HS256"
+    GOOGLE_CLIENT_ID: str | None = None
+    ALLOWED_EMAIL_ORIGINS: list[str] = []
+
+    # MailChimp Config
+    MANDRILL_URL: str| None = "https://mandrillapp.com/api/1.0/messages/send"
+    MANDRILL_API_KEY: str | None  = None
+    BASE_MANDRILL_EMAIL: str | None = None
+
+
+    def has_email_notification(self):
+        return bool(self.MANDRILL_API_KEY)
 
     @property
     def has_auth(self) -> bool:
         return bool(self.auth_username and self.auth_password)
-
 
 config = Config()

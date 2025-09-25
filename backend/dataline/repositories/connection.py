@@ -1,12 +1,13 @@
 from enum import Enum
-from typing import Type
+from typing import Type, Dict, List
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
+from uuid import UUID
 from dataline.models.connection.model import ConnectionModel
 from dataline.repositories.base import AsyncSession, BaseRepository
-from dataline.models.connection.schema import ConnectionOptions
+from dataline.models.connection.schema import ConnectionOptions, ConnectionConfigSchema
 
 
 class ConnectionType(Enum):
@@ -17,6 +18,7 @@ class ConnectionType(Enum):
     mysql = "mysql"
     snowflake = "snowflake"
     sas = "sas"
+    redshift = "redshift"
 
 
 class ConnectionCreate(BaseModel):
@@ -29,6 +31,9 @@ class ConnectionCreate(BaseModel):
     type: str
     is_sample: bool = False
     options: ConnectionOptions | None = None
+    glossary: Dict[str,str] | None = None
+    unique_value_dict: dict[str, list[tuple[str,str]]] | None = None
+    config: ConnectionConfigSchema | None = None
 
 
 class ConnectionUpdate(BaseModel):
@@ -41,6 +46,9 @@ class ConnectionUpdate(BaseModel):
     type: str | None = None
     is_sample: bool | None = None
     options: ConnectionOptions | None = None
+    glossary: Dict[str, str] | None = None
+    unique_value_dict: dict[str, list[tuple[str,str]]] | None = None
+    config: ConnectionConfigSchema | None = None
 
 
 class ConnectionRepository(BaseRepository[ConnectionModel, ConnectionCreate, ConnectionUpdate]):
@@ -55,3 +63,13 @@ class ConnectionRepository(BaseRepository[ConnectionModel, ConnectionCreate, Con
         """
         query = select(self.model).filter_by(dsn=dsn)
         return await self.get(session, query)
+
+    async def get_all_by_uuids(self, session:AsyncSession, connection_uuids: List[UUID]):
+
+        query = select(self.model).where(self.model.id.in_(connection_uuids))
+        return await self.list(session, query)
+
+    async def get_names_by_uuids(self, session: AsyncSession) -> dict[str,str]:
+        query = select(self.model.id, self.model.name)
+        result = await session.execute(query)
+        return {str(row[0]): row[1] for row in result.all()}

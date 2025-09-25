@@ -25,7 +25,7 @@ export function getBackendStatusQuery(options = {}) {
 export function useGetBackendStatus() {
   const result = useQuery(
     getBackendStatusQuery({
-      refetchInterval: 2000,
+      refetchInterval: 60000,
     })
   );
 

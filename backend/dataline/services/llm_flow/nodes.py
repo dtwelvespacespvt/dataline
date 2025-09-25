@@ -6,9 +6,12 @@ from langchain_core.utils.function_calling import convert_to_openai_function
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END
 from openai import AuthenticationError, RateLimitError
+from pydantic import BaseModel, Field
 
 from dataline.errors import UserFacingError
 from dataline.models.llm_flow.schema import QueryResultSchema
+from dataline.models.message.schema import BaseMessageType
+from dataline.services.llm_flow.prompt import PROMPT_VALIDATION_QUERY
 from dataline.services.llm_flow.toolkit import (
     ChartGeneratorTool,
     QueryGraphState,
@@ -42,6 +45,11 @@ class Condition(ABC):
     def run(cls, state: QueryGraphState) -> NodeName:
         raise NotImplementedError
 
+class ValidationResponseFormatter(BaseModel):
+
+    result: bool = Field(description="True / False for validation")
+    reason: str = Field(description="reason if validation fails else empty")
+
 
 class CallModelNode(Node):
     __name__ = "call_model"
@@ -53,7 +61,7 @@ class CallModelNode(Node):
             model=state.options.llm_model,
             base_url=state.options.openai_base_url,
             api_key=state.options.openai_api_key,
-            temperature=0,
+            temperature=1,
             streaming=True,
         )
         sql_tools = state.sql_toolkit.get_tools()
@@ -75,6 +83,11 @@ class CallModelNode(Node):
             raise UserFacingError(str(e))
 
         return state_update(messages=[response])
+
+
+class ReturnNode:
+    def __call__(self, state: QueryGraphState) -> QueryGraphState:
+        return state
 
 
 class CallToolNode(Node):
@@ -162,3 +175,52 @@ class ShouldCallToolCondition(Condition):
         # Otherwise if there is, we continue
         else:
             return CallToolNode.__name__
+
+class ShouldCallModelCondition(Condition):
+    @classmethod
+    def run(cls, state: QueryGraphState) -> NodeName:
+        if state.query_validation:
+            return CallModelNode.__name__
+        return END
+
+class QueryValidationNode(Node):
+    @classmethod
+    def run(cls, state: QueryGraphState) -> QueryGraphStateUpdate:
+
+        messages = state.messages
+        last_message = ""
+        for message in reversed(messages):
+            if message.type == BaseMessageType.HUMAN.value:
+                last_message = message
+                break
+
+        model = ChatOpenAI(
+            model=state.options.llm_model,
+            base_url=state.options.openai_base_url,
+            api_key=state.options.openai_api_key,
+            temperature=1,
+            streaming=True,
+        )
+        model = model.with_structured_output(ValidationResponseFormatter)
+        if state.validation_query:
+            validation_prompt = PROMPT_VALIDATION_QUERY + "\n " + "Validation Prompt: " + state.validation_query+ "User Message: " + last_message.content
+        else:
+            return state_update(query_validation=True)
+        try:
+            validation_response: ValidationResponseFormatter = model.invoke(validation_prompt)
+        except RateLimitError as e:
+            body = cast(dict, e.body)
+            raise UserFacingError(body.get("message", "OpenAI API rate limit exceeded"))
+        except AuthenticationError as e:
+            body = cast(dict, e.body)
+            raise UserFacingError(body.get("message", "OpenAI API key rejected"))
+        except Exception as e:
+            raise UserFacingError(str(e))
+
+        if not validation_response.result:
+            ai_message = AIMessage( content=validation_response.reason)
+            return state_update(messages=[ai_message], query_validation=False)
+        return state_update(query_validation= True)
+
+
+

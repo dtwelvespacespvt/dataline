@@ -223,7 +223,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
           <RadioField>
             <Radio value="database" color="white" />
             <Label className="cursor-pointer">
-              Postgres, MySQL, Snowflake, or MS SQL Server connection string
+              Postgres, MySQL, Snowflake, Redshift or MS SQL Server connection string
             </Label>
           </RadioField>
           <RadioField>
@@ -260,7 +260,7 @@ const ConnectionCreator = ({ name = null }: { name: string | null }) => {
               onClick={handleCustomCreate}
               disabled={isPending}
             >
-              Create connection
+              {isPending ? 'Processing...' : 'Create connection'}
             </Button>
           </div>
         ) : (

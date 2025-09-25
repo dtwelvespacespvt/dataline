@@ -88,6 +88,11 @@ const styles = {
       "dark:text-red-500 dark:hover:text-white dark:[--btn-bg:theme(colors.zinc.700)] dark:[--btn-hover-overlay:theme(colors.red.700)] ",
       "[--btn-icon:theme(colors.zinc.400)] data-[active]:[--btn-icon:theme(colors.red.300)] data-[hover]:[--btn-icon:theme(colors.red.300)]",
     ],
+    "dark/zinc/sky": [
+      "text-white [--btn-bg:theme(colors.zinc.900)] [--btn-border:theme(colors.zinc.950/90%)] [--btn-hover-overlay:theme(colors.white/10%)]",
+      "dark:text-blue-500 dark:hover:text-white dark:[--btn-bg:theme(colors.zinc.700)] dark:[--btn-hover-overlay:theme(colors.blue.700)] ",
+      "[--btn-icon:theme(colors.zinc.400)] data-[active]:[--btn-icon:theme(colors.blue.300)] data-[hover]:[--btn-icon:theme(colors.blue.300)]",
+    ],
     light: [
       "text-gray-950 [--btn-bg:white] [--btn-border:theme(colors.zinc.950/10%)] [--btn-hover-overlay:theme(colors.zinc.950/2.5%)] data-[active]:[--btn-border:theme(colors.zinc.950/15%)] data-[hover]:[--btn-border:theme(colors.zinc.950/15%)]",
       "dark:text-white dark:[--btn-hover-overlay:theme(colors.white/5%)] dark:[--btn-bg:theme(colors.zinc.800)]",

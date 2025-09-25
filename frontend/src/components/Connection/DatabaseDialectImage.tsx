@@ -3,10 +3,12 @@ import postgresImage from "../../assets/images/postgres.png";
 import sqliteImage from "../../assets/images/sqlite.png";
 import sqlServerImage from "../../assets/images/sql_server.png";
 import snowflakeImage from "../../assets/images/snowflake.png";
+import redshiftImage from "../../assets/images/redshift.png";
 import mysqlImage from "../../assets/images/mysql.png";
 import netflixImage from "../../assets/images/netflix.png";
 import spotifyImage from "../../assets/images/spotify.png";
 import titanicImage from "../../assets/images/titanic.png";
+import bigQueryImage from "../../assets/images/bigquery.png";
 import { CircleStackIcon } from "@heroicons/react/24/outline";
 
 interface ConnectionImageProps {
@@ -23,7 +25,9 @@ const ConnectionImage: React.FC<ConnectionImageProps> = ({
     sqlite: sqliteImage,
     mssql: sqlServerImage,
     snowflake: snowflakeImage,
+    redshift: redshiftImage,
     mysql: mysqlImage,
+    bigquery: bigQueryImage,
     // You can add more mappings here as needed
   };
   let imageSrc = imageMap[databaseDialect];

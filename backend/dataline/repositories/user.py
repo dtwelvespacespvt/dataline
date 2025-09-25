@@ -1,11 +1,15 @@
-from typing import Optional, Type
+from typing import Optional, Type, List
 
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict, EmailStr
+from sqlalchemy import select, update, or_
 
+from uuid import UUID
+from dataline.models.user.enums import UserRoles
 from dataline.models.user.model import UserModel
 from dataline.repositories.base import AsyncSession, BaseRepository, NotFoundError
 
+class UserConfig(BaseModel):
+    connections: List[str]
 
 class UserCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="ignore")
@@ -17,6 +21,10 @@ class UserCreate(BaseModel):
     preferred_openai_model: Optional[str] = None
     sentry_enabled: Optional[bool] = True
     analytics_enabled: Optional[bool] = True
+    avatar_url: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = UserRoles.USER.value
+    config: Optional[UserConfig] = None
 
 
 class UserUpdate(UserCreate):
@@ -32,6 +40,38 @@ class UserRepository(BaseRepository[UserModel, UserCreate, UserUpdate]):
     async def get_one_or_none(self, session: AsyncSession) -> Optional[UserModel]:
         query = select(self.model)
         try:
+            return  await self.first(session, query=query)
+        except NotFoundError:
+            return None
+
+    async def get_by_email(self, session: AsyncSession, email:str) -> Optional[UserModel]:
+        query = select(self.model).where(self.model.email==email)
+        try:
             return await self.first(session, query=query)
         except NotFoundError:
             return None
+
+    async def get_one_by_role(self, session: AsyncSession, role: UserRoles):
+        query = select(self.model).where(self.model.role == role)
+        if role == UserRoles.ADMIN.value:
+            query = query.where(
+                or_(
+                    self.model.email.is_(None),
+                    self.model.email == ''
+                )
+            )
+        query = query.limit(1)
+        try:
+            return await self.first(session, query)
+        except NotFoundError:
+            return None
+
+    async def update_avatar_blob(self, session: AsyncSession, blob: bytes, user_id: UUID):
+        query = (
+            update(self.model)
+            .where(self.model.id == user_id)
+            .values(avatar_blob=blob)
+            .returning(self.model.avatar_blob)
+        )
+        return await session.scalar(query)
+

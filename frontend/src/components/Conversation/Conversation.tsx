@@ -11,6 +11,7 @@ import {
   useGenerateConversationTitle,
   useGetConnections,
   useGetConversations,
+  useGetDictionary,
   useSendMessageStreaming,
 } from "@/hooks";
 import { Spinner } from "../Spinner/Spinner";
@@ -50,6 +51,7 @@ export const Conversation = () => {
   const currConversation = conversationsData?.find(
     (conv) => conv.id === params.conversationId
   );
+  const { data: autoCompleteList } = useGetDictionary(currConversation?.connection_id || "");
   const { mutate: generateConversationTitle } = useGenerateConversationTitle();
   const {
     mutate: sendMessageMutation,
@@ -77,7 +79,7 @@ export const Conversation = () => {
     },
   });
 
-  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const expandingInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currConnection = connectionsData?.connections?.find(
@@ -87,11 +89,12 @@ export const Conversation = () => {
   // Scroll to bottom of screen when new result comes in
   // TODO: Look into removing this to avoid disrupting user
   // experience and show arrow to scroll to bottom instead
-  const scrollToBottom = (
-    behavior: ScrollBehavior = "instant" as ScrollBehavior
-  ) => {
-    if (messageListRef.current !== null) {
-      window.scrollTo({ top: messageListRef.current?.offsetTop, behavior });
+  const scrollToBottom = (behavior: ScrollBehavior = "instant") => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
     }
   };
   useEffect(() => {
@@ -99,6 +102,11 @@ export const Conversation = () => {
       scrollToBottom("smooth");
     }
   }, [streamedResults]);
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      scrollToBottom("smooth");
+    }
+  }, [messages?.length]);
 
   useEffect(() => {
     // Wait for charts to render, otherwise the scroll will happen and stop before it reaches the bottom
@@ -107,7 +115,7 @@ export const Conversation = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [
     isPendingGetMessages,
-    messageListRef,
+    messagesContainerRef,
     params.conversationId,
     isStreamingResults,
   ]);
@@ -146,7 +154,7 @@ export const Conversation = () => {
   }
 
   return (
-    <div className="bg-gray-900 w-full h-[calc(100%-4rem)] relative flex flex-col">
+    <div className="bg-gray-900 w-full h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] relative flex flex-col">
       <Transition
         key={params.conversationId}
         enter="transition duration-200"
@@ -155,7 +163,7 @@ export const Conversation = () => {
         show={true}
         appear={true}
       >
-        <div className="overflow-y-auto pb-36 bg-gray-900">
+        <div ref={messagesContainerRef} className="overflow-y-auto pb-36 pt-20 lg:pt-4 bg-gray-900">
           {messages.map((message) => (
             <Message
               key={(params.conversationId as string) + message.message.id}
@@ -192,9 +200,7 @@ export const Conversation = () => {
         </div>
       </Transition>
 
-      <div ref={messageListRef}></div>
-
-      <div className="fixed bottom-0 left-0 lg:left-72 right-0 flex flex-col items-center justify-center backdrop-blur-md pt-0">
+      <div className="fixed bottom-0 left-0 lg:left-72 right-0 flex flex-col items-center justify-center backdrop-blur-md pt-2 pb-2">
         {messages.length === 0 && !currentConversationIsQuerying && (
           <div className="w-full md:max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-2 justify-between px-2 sm:px-3 my-4">
             {templateMessages.map((template) => (
@@ -224,6 +230,7 @@ export const Conversation = () => {
             }}
             disabled={currentConversationIsQuerying}
             ref={expandingInputRef}
+            autoCompleteList={autoCompleteList}
           />
           <p className="text-gray-400 text-sm">
             Current Connection: {currConnection?.name}

@@ -4,11 +4,13 @@ import {
   ShieldExclamationIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { SetStateAction, forwardRef, useRef, useState } from "react";
-
+import {
+  forwardRef,
+  useRef,
+  useState,
+} from "react";
 import { Switch, SwitchField, SwitchGroup } from "../Catalyst/switch";
 import { Description, Fieldset, Label } from "../Catalyst/fieldset";
-
 import { Transition } from "@headlessui/react";
 
 import {
@@ -22,6 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 type ExpandingInputProps = {
   onSubmit: (value: string) => void;
   disabled: boolean;
+  autoCompleteList: any;
 };
 
 function classNames(...classes: string[]) {
@@ -63,9 +66,7 @@ const MessageSettingsPopup: React.FC<MessageSettingsPopupProps> = ({
     >
       <div
         ref={settingsPopupRef}
-        className={classNames(
-          "absolute left-0 bottom-1 border p-4 bg-gray-900 border-gray-600 rounded-xl"
-        )}
+        className="absolute left-0 bottom-1 border p-4 bg-gray-900 border-gray-600 rounded-xl"
       >
         <Fieldset>
           <SwitchGroup>
@@ -89,7 +90,7 @@ const MessageSettingsPopup: React.FC<MessageSettingsPopupProps> = ({
 };
 
 const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
-  ({ onSubmit, disabled }, ref) => {
+  ({ onSubmit, disabled, autoCompleteList }, ref) => {
     const [inputValue, setInputValue] = useState("");
     const [messageSettingsShown, setMessageSettingsShown] = useState(false);
     const currConnection = useGetRelatedConnection();
@@ -98,40 +99,106 @@ const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
     );
     const settingsCogRef = useRef<HTMLDivElement | null>(null);
 
-    const handleChange = (e: {
-      target: {
-        value: SetStateAction<string>;
-        style: { height: string };
-        scrollHeight: any;
-      };
-    }) => {
-      setInputValue(e.target.value);
-      e.target.style.height = "auto"; // Reset textarea height
-      e.target.style.height = `${e.target.scrollHeight}px`; // Set textarea height based on content
+    const suggestions = Object.keys(autoCompleteList || {});
+    const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>(
+      []
+    );
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setInputValue(value);
+      e.target.style.height = "auto";
+      e.target.style.height = `${e.target.scrollHeight}px`;
+
+      const cursorPos = e.target.selectionStart;
+      const textBeforeCursor = value.slice(0, cursorPos);
+      const match = textBeforeCursor.match(/(\w{3,})$/);
+
+      if (match) {
+        const query = match[1].toLowerCase();
+        const filtered = suggestions.filter((s) =>
+          s.toLowerCase().includes(query)
+        );
+        setFilteredSuggestions(filtered);
+        setShowSuggestions(filtered.length > 0);
+      } else {
+        setShowSuggestions(false);
+      }
     };
 
+    // const handleSubmit = () => {
+    //   if (disabled || inputValue.length === 0) return;
+    //   onSubmit(inputValue);
+    //   setInputValue("");
+    //   setShowSuggestions(false);
+    // };
+
     const handleSubmit = () => {
-      if (disabled) return;
-      if (inputValue.length === 0) return;
-      onSubmit(inputValue);
+      if (disabled || inputValue.length === 0) return;
+
+      let transformed = inputValue;
+
+      // Sort tags by length descending so longer phrases match first
+      const sortedTags = suggestions.sort((a, b) => b.length - a.length);
+
+      for (const tag of sortedTags) {
+        const tagRegex = new RegExp(`\\b${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "gi");
+        const tags = autoCompleteList[tag];
+
+        if (tags.includes("uniqueKey")) {
+          transformed = transformed.replace(tagRegex, `[${tag}]`);
+        } else if (tags.includes("glossary")) {
+          transformed = transformed.replace(tagRegex, `<${tag}>`);
+        }
+      }
+
+      onSubmit(transformed);
       setInputValue("");
+      setShowSuggestions(false);
     };
+
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
-
-        // Reset textarea height
         e.currentTarget.style.height = "auto";
       }
+    };
+
+    const insertSuggestionAtCaret = (suggestion: string) => {
+      const textarea = ref && "current" in ref ? ref.current : null;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      const textBefore = inputValue.substring(0, start);
+      const textAfter = inputValue.substring(end);
+
+      const match = textBefore.match(/(\w{3,})$/);
+      const replaceStart = match ? start - match[1].length : start;
+
+      const newValue =
+        inputValue.substring(0, replaceStart) +
+        suggestion +
+        " " +
+        textAfter;
+      setInputValue(newValue);
+      setShowSuggestions(false);
+
+      setTimeout(() => {
+        const newPos = replaceStart + suggestion.length + 1;
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.focus();
+      }, 0);
     };
 
     return (
       <div className="flex flex-col justify-center w-full relative mb-4">
         <textarea
-          name="email"
-          id="email"
+          name="message"
           className={classNames(
             disabled
               ? "placeholder:text-gray-600 text-gray-800 dark:text-gray-400 dark:bg-gray-800 focus:ring-0"
@@ -146,6 +213,21 @@ const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
           onKeyDown={handleKeyPress}
           ref={ref}
         />
+
+        {showSuggestions && filteredSuggestions.length > 0 && (
+          <ul className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg text-sm w-full max-h-48 overflow-y-auto left-0 bottom-full">
+            {filteredSuggestions.map((s) => (
+              <li
+                key={s}
+                className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200"
+                onClick={() => insertSuggestionAtCaret(s)}
+              >
+                {s}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="absolute left-0 top-0 w-full">
           <MessageSettingsPopup
             isShown={messageSettingsShown}
@@ -153,15 +235,14 @@ const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
             settingsCogRef={settingsCogRef}
           />
         </div>
-        <div className={"group absolute flex items-center left-0"}>
+
+        <div className="group absolute flex items-center left-0">
           <div
             ref={settingsCogRef}
             onClick={() => setMessageSettingsShown((prev) => !prev)}
             className="hover:cursor-pointer hover:bg-white/10 dark:text-gray-400 ml-2 p-1 rounded-md transition-all duration-150"
           >
-            <Cog6ToothIcon
-              className={"hover:-rotate-6 h-6 w-6 [&>path]:stroke-[2]"}
-            />
+            <Cog6ToothIcon className="hover:-rotate-6 h-6 w-6 [&>path]:stroke-[2]" />
           </div>
           <div className="dark:text-gray-400 ml-1 invisible sm:visible">
             {messageOptions?.secure_data ? (
@@ -171,6 +252,7 @@ const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
             )}
           </div>
         </div>
+
         <div
           onClick={handleSubmit}
           className={classNames(
@@ -185,7 +267,7 @@ const ExpandingInput = forwardRef<HTMLTextAreaElement, ExpandingInputProps>(
               inputValue.length > 0 ? "group-hover:-rotate-6" : "",
               "h-6 w-6 [&>path]:stroke-[2]"
             )}
-          ></PaperAirplaneIcon>
+          />
         </div>
       </div>
     );

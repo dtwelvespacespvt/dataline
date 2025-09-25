@@ -32,6 +32,12 @@ class MessageUpdate(BaseModel):
     content: str
     role: str
     conversation_id: UUID
+    is_positive: bool | None
+
+class MessageFeedBack(BaseModel):
+    message_id: UUID
+    is_positive: bool | None
+    content: str | None
 
 
 class MessageOut(BaseModel):
@@ -41,6 +47,7 @@ class MessageOut(BaseModel):
     content: str
     role: Literal["ai"] | Literal["human"]
     created_at: datetime
+    is_positive: bool | None
 
     options: Optional[MessageOptions]
 

@@ -182,6 +182,50 @@ export function useDeleteConnection(options = {}) {
   });
 }
 
+export function useGenerateDescriptions(options = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: IEditConnection }) =>
+      api.generateDescriptions(id, payload),
+    onError(error: any) {
+      const backendMessage =
+        error?.response?.data?.detail || error?.message || "Error generating descriptions for tables and its columns";
+      enqueueSnackbar({
+        variant: "error",
+        message: backendMessage,
+      });
+    },
+    onSettled() {
+      queryClient.invalidateQueries({
+        queryKey: getConnectionsQuery().queryKey,
+      });
+    },
+    ...options,
+  });
+}
+
+export function useGenerateRelationships(options = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: IEditConnection }) =>
+      api.generateRelationships(id, payload),
+    onError(error: any) {
+      const backendMessage =
+        error?.response?.data?.detail || error?.message || "Error generating relationships for tables and its columns";
+      enqueueSnackbar({
+        variant: "error",
+        message: backendMessage,
+      });
+    },
+    onSettled() {
+      queryClient.invalidateQueries({
+        queryKey: getConnectionsQuery().queryKey,
+      });
+    },
+    ...options,
+  });
+}
+
 export function useUpdateConnection(options = {}) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -234,5 +278,14 @@ export function useRefreshConnectionSchema(
         message: "Failed to refresh schema: " + error.message,
       });
     },
+  });
+}
+
+export function useGetDictionary(connectionId: string) {
+  const { isSuccess } = useQuery(getBackendStatusQuery());
+  return useQuery({
+    queryKey: ["CONNECTIONS", { connectionId }],
+    queryFn: async () => (await api.getDictionary(connectionId)).data,
+    enabled: isSuccess && Boolean(connectionId),
   });
 }
