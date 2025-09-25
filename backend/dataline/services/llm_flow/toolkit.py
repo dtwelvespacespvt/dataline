@@ -18,7 +18,7 @@ from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.messages import BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool, BaseToolkit
 from langgraph.prebuilt import ToolExecutor
-from pydantic import BaseModel, Field, SkipValidation
+from pydantic import BaseModel, Field, SkipValidation, ValidationError
 
 from dataline.models.llm_flow.schema import (
     ChartGenerationResult,
@@ -550,20 +550,24 @@ class ChartGeneratorTool(StateUpdaterTool):
         results: list[QueryResultSchema] = []
 
         chart_type = ChartType[args["chart_type"]]
-
-        generated_chart = call(
-            state.options.llm_model,
-            response_model=GeneratedChart,
-            prompt_fn=generate_chart_prompt,
-            client_options=OpenAIClientOptions(
-                api_key=state.options.openai_api_key.get_secret_value(),
-                base_url=state.options.openai_base_url,
-            ),
-        )(
-            chart_type=chart_type,
-            request=args["request"],
-            chartjs_template=TEMPLATES[chart_type],
-        )
+        try:
+            generated_chart = call(
+                state.options.llm_model,
+                response_model=GeneratedChart,
+                prompt_fn=generate_chart_prompt,
+                client_options=OpenAIClientOptions(
+                    api_key=state.options.openai_api_key.get_secret_value(),
+                    base_url=state.options.openai_base_url,
+                ),
+            )(
+                chart_type=chart_type,
+                request=args["request"],
+                chartjs_template=TEMPLATES[chart_type],
+            )
+        except ValidationError as e:
+            tool_message = ToolMessage(content=f"ERROR: {e}", name=self.name, tool_call_id=call_id)
+            messages.append(tool_message)
+            return state_update(messages=messages)
 
         # Find the last data result
         last_data_result = None
