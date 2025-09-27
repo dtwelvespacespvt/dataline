@@ -67,7 +67,7 @@ class CallModelNode(Node):
         sql_tools = state.sql_toolkit.get_tools()
         all_tools = sql_tools + [ChartGeneratorTool()]
         tools = [convert_to_openai_function(t) for t in all_tools]
-        model = cast(ChatOpenAI, model.bind_tools(tools))
+        model = cast(ChatOpenAI, model.bind_tools(tools, parallel_tool_calls=False))
         # This includes tool messages and ai messages at this point
         # TODO: Useful to limit tokens when graph recursion is very deep
         last_n_messages = state.messages

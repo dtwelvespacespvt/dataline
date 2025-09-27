@@ -31,6 +31,8 @@ Use **column descriptions and sample values** to understand which columns match 
 
 Always prefer semantically appropriate columns even if names don’t match exactly.
 
+Always try to only write only one query unless specified otherwise
+
 Only use the below tools. Only use the information returned by the below tools to construct your final answer.
 If you get an error while executing a query, rewrite the query and try again.
 

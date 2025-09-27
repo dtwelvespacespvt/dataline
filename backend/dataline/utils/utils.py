@@ -1,6 +1,7 @@
 import base64
 import logging
 import random
+import asyncio
 from typing import AsyncGenerator
 
 from fastapi import UploadFile
@@ -55,8 +56,16 @@ def stream_event_str(event: str, data: str) -> str:
 
 
 async def generate_with_errors(generator: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
+    last_ping_time = asyncio.get_event_loop().time()
     try:
         async for chunk in generator:
+            current_time = asyncio.get_event_loop().time()
+            if current_time - last_ping_time >= 5:
+                yield stream_event_str(
+                    QueryStreamingEventType.HEARTBEAT.value,
+                    QueryStreamingEventType.HEARTBEAT.value
+                )
+                last_ping_time = current_time
             yield chunk
     except UserFacingError as e:
         logger.exception("Error in conversation query generator")
