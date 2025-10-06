@@ -269,7 +269,7 @@ const createMessage = async (conversationId: number, content: string) => {
   return response.data;
 };
 
-export const DEFAULT_OPTIONS = { secure_data: true };
+export const DEFAULT_OPTIONS = { secure_data: true, debug: false };
 
 export type QueryOut = ApiResponse<{
   human_message: types.IMessageOut;
