@@ -1,5 +1,6 @@
 import {
   IResultType,
+  IMessageOptions,
   ISQLQueryStringResult,
   ISelectedTablesResult,
 } from "@components/Library/types";
@@ -104,9 +105,11 @@ function getResultGroups(results: IResultType[]) {
 export const MessageResultRenderer = ({
   initialResults,
   messageId,
+  messageOptions,
 }: {
   initialResults: IResultType[];
   messageId: string;
+  messageOptions?: IMessageOptions;
 }) => {
   const [results, setResults] = useState(initialResults);
   const { groups: resultGroups, unlinkedGroup } = useMemo(
@@ -257,7 +260,7 @@ export const MessageResultRenderer = ({
                   linked_id={result.linked_id}
                 />
               )) ||
-              (result.type === "SQL_QUERY_STRING_RESULT" && (
+              (result.type === "SQL_QUERY_STRING_RESULT" && messageOptions?.debug && (
                 <CodeBlock
                   key={`message-${messageId}-code-${result.result_id}`}
                   dialect={result.content.dialect}

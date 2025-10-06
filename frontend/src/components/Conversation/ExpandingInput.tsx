@@ -82,6 +82,18 @@ const MessageSettingsPopup: React.FC<MessageSettingsPopupProps> = ({
                 name="data_security"
               />
             </SwitchField>
+            <SwitchField>
+              <Label className="flex items-center">Debug</Label>
+              <Description>Enable this to debug result</Description>
+              <Switch
+                color="green"
+                checked={messageOptions?.debug}
+                onChange={(checked) =>
+                  patchMessageOptions({ debug: checked })
+                }
+                name="debug"
+              />
+            </SwitchField>
           </SwitchGroup>
         </Fieldset>
       </div>

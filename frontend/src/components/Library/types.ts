@@ -75,6 +75,7 @@ export interface ISQLQueryRunResult extends IResult {
 
 export interface IMessageOptions {
   secure_data: boolean;
+  debug: boolean;
 }
 
 export interface IMessageOut {

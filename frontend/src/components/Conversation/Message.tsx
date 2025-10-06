@@ -1,5 +1,5 @@
 import logo from "@/assets/images/logo_md.png";
-import { IMessageWithResultsOut } from "@components/Library/types";
+import { IMessageWithResultsOut, IMessageOptions } from "@components/Library/types";
 import { UserCircleIcon } from "@heroicons/react/24/solid";
 import { useGetAvatar, useSubmitFeedback } from "@/hooks";
 import { HandThumbDownIcon, HandThumbUpIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
@@ -43,10 +43,12 @@ export const Message = ({
   message,
   className = "",
   streaming = false,
+  messageOptions,
 }: {
   message: IMessageWithResultsOut;
   className?: string;
   streaming?: boolean;
+  messageOptions?: IMessageOptions;
 }) => {
   const [feedback, setFeedback] = React.useState<{ isPositive: boolean | null; text: string }>({
     isPositive: null,
@@ -134,7 +136,7 @@ export const Message = ({
             )}
           </div>
           {/** RESULTS: QUERY, DATA, PLOTS */}
-          <MessageResultRenderer initialResults={message.results || []} messageId={message.message.id || ""} />
+          <MessageResultRenderer initialResults={message.results || []} messageId={message.message.id || ""} messageOptions={messageOptions} />
           <div className="flex flex-col justify-end items-end">
             {message.message.role === "ai" ? (
               <div className="flex flex-row">
