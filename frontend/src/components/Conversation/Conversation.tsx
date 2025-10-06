@@ -17,7 +17,7 @@ import {
 } from "@/hooks";
 import { Spinner } from "../Spinner/Spinner";
 import { useQuery } from "@tanstack/react-query";
-import { IResultType, IMessageOptions } from "@components/Library/types";
+import { IResultType } from "@components/Library/types";
 import { generateUUID } from "@components/Library/utils";
 
 const templateMessages = [
