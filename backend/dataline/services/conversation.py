@@ -191,6 +191,7 @@ class ConversationService:
         conversation_id: UUID,
         query: str,
         secure_data: bool = True,
+        debug: bool = False,
     ) -> AsyncGenerator[str, None]:
 
         # Get conversation, connection, user settings

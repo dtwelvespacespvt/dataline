@@ -117,7 +117,7 @@ def query(
         {"conversation_id": str(conversation_id), "is_secure": message_options.secure_data},
     )
     response_generator = conversation_service.query(
-        session, conversation_id, query, secure_data=message_options.secure_data
+        session, conversation_id, query, secure_data=message_options.secure_data, debug=message_options.debug
     )
     return StreamingResponse(
         generate_with_errors(response_generator),

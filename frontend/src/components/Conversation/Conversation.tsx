@@ -13,10 +13,11 @@ import {
   useGetConversations,
   useGetDictionary,
   useSendMessageStreaming,
+  getMessageOptions,
 } from "@/hooks";
 import { Spinner } from "../Spinner/Spinner";
 import { useQuery } from "@tanstack/react-query";
-import { IResultType } from "@components/Library/types";
+import { IResultType, IMessageOptions } from "@components/Library/types";
 import { generateUUID } from "@components/Library/utils";
 
 const templateMessages = [
@@ -84,6 +85,9 @@ export const Conversation = () => {
 
   const currConnection = connectionsData?.connections?.find(
     (conn) => conn.id === currConversation?.connection_id
+  );
+  const { data: messageOptions } = useQuery(
+    getMessageOptions(currConnection?.id)
   );
 
   // Scroll to bottom of screen when new result comes in
@@ -168,6 +172,7 @@ export const Conversation = () => {
             <Message
               key={(params.conversationId as string) + message.message.id}
               message={message}
+              messageOptions={messageOptions}
             />
           ))}
           {currentConversationIsQuerying && (
@@ -194,6 +199,7 @@ export const Conversation = () => {
                   results: streamedResults,
                 }}
                 className="animate-pulse"
+                messageOptions={messageOptions}
               />
             </>
           )}
