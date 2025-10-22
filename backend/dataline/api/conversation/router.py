@@ -4,6 +4,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
 from dataline.auth import UserInfo, security
 from dataline.models.conversation.schema import (
     ConversationOut,
@@ -27,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["conversations"])
 
+class QueryRequest(BaseModel):
+    query: str
+    message_options: MessageOptions
 
 @router.get("/conversation/{conversation_id}")
 async def get_conversation(
@@ -105,8 +110,7 @@ async def delete_conversation(
 @router.post("/conversation/{conversation_id}/query")
 def query(
     conversation_id: UUID,
-    query: str,
-    message_options: Annotated[MessageOptions, Body(embed=True)],
+    request_body: QueryRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
     conversation_service: Annotated[ConversationService, Depends()],
     background_tasks: BackgroundTasks,
@@ -114,10 +118,10 @@ def query(
     background_tasks.add_task(
         posthog_capture,
         "message_sent",
-        {"conversation_id": str(conversation_id), "is_secure": message_options.secure_data},
+        {"conversation_id": str(conversation_id), "is_secure": request_body.message_options.secure_data},
     )
     response_generator = conversation_service.query(
-        session, conversation_id, query, secure_data=message_options.secure_data, debug=message_options.debug
+        session, conversation_id, request_body.query, secure_data=request_body.message_options.secure_data, debug=request_body.message_options.debug
     )
     return StreamingResponse(
         generate_with_errors(response_generator),
