@@ -30,7 +30,7 @@ const FeatureComparisonTable = () => {
           <TableHead>
             <TableRow>
               <TableHeader className="text-center">Feature</TableHeader>
-              <TableHeader className="text-center">DataLine</TableHeader>
+              <TableHeader className="text-center">DataSense</TableHeader>
               <TableHeader className="text-center">ChatGPT Plus</TableHeader>
             </TableRow>
           </TableHead>

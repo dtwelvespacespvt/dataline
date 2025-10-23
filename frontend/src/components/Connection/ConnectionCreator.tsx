@@ -120,8 +120,8 @@ const FileDragAndDrop = ({
           <p>or drag and drop</p>
         </div>
         <p className="text-xs leading-5 text-gray-400 px-12 mt-4">
-          Creates a copy of your {fileTypeLabel} in DataLine. Changes you make
-          to the file will not be accessible to DataLine as it will work on the
+          Creates a copy of your {fileTypeLabel} in DataSense. Changes you make
+          to the file will not be accessible to DataSense as it will work on the
           copy you upload.
         </p>
       </div>

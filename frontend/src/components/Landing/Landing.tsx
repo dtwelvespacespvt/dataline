@@ -23,7 +23,7 @@ const CohortData = {
   "ab-test-1-landing": {
     headline: "Your data just learned to talk. What do you wanna know?",
     description:
-      "DataLine is an AI-driven open source and privacy-first platform for data exploration. Your data is accessed using your device and stored on your device. No clouds, only sunshine.",
+      "DataSense is an AI-driven open source and privacy-first platform for data exploration. Your data is accessed using your device and stored on your device. No clouds, only sunshine.",
     feature_group_1: {
       title: "Plugs into your database. Securely.",
       description:
@@ -32,7 +32,7 @@ const CohortData = {
     feature_group_2: {
       title: "Ask, Explore, Edit, Iterate.",
       description:
-        "Your time is too valuable to be looking up column names.<br>Focus on the questions. DataLine will handle the rest, instantly.",
+        "Your time is too valuable to be looking up column names.<br>Focus on the questions. DataSense will handle the rest, instantly.",
     },
     comparison: {
       title: "How do we compare?",
@@ -102,7 +102,7 @@ export const Landing = () => {
 
               <img
                 src={headline_image}
-                alt="DataLine platform screenshot"
+                alt="DataSense platform screenshot"
                 width={2432}
                 height={1442}
                 className="mt-4 bg-white/5 ring-1 ring-white/10 rounded-xl shadow-2xl"

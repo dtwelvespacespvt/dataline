@@ -51,7 +51,7 @@ export const CenteredLayout = ({ children }: { children: React.ReactNode }) => {
             src={logo}
           ></img>
           <h1 className="my-10 text-3xl font-bold tracking-tight text-center text-white sm:text-6xl">
-            DataLine
+            DataSense
           </h1>
         </div>
         <div className="w-full">{children}</div>

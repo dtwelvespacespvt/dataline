@@ -120,7 +120,7 @@ export default function About() {
               <div>
                 <p>
                   Our committment to privacy is unwavering. We don't like the
-                  direction the big corps are leading us in. DataLine and all
+                  direction the big corps are leading us in. DataSense and all
                   our future products will definitely be privacy-first as well,
                   so you can sign up for our journey if you appreciate that kind
                   of thing.
@@ -128,7 +128,7 @@ export default function About() {
                 <p className="mt-8">
                   We're far from done working on this product, but we already
                   have something that works for a large majority of users. It
-                  fuels us to see the impact DataLine is having on our first few
+                  fuels us to see the impact DataSense is having on our first few
                   users, and we wish we could build even faster to get it in the
                   hands of more people and cover more usecases.
                 </p>
@@ -196,7 +196,7 @@ export default function About() {
               Our team
             </h2>
             <p className="mt-6 text-lg leading-8 text-gray-300">
-              The delightful duo behind DataLine.
+              The delightful duo behind DataSense.
             </p>
           </div>
           <ul
