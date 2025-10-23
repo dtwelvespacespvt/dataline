@@ -376,12 +376,12 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                 data_description = (
                     "Returned data description:\n"
                     f"Columns:{response.columns}\n"
-                    f"First row: {data_types}\n"
-                    f"Number of rows: {len(response.rows)}\n"
+                    f"Data row datatypes: {data_types}\n"
+                    f"Data row count: {len(response.rows)}\n"
                 )
             elif len(response.rows) == 1:
                 data_types = [type(cell).__name__ for cell in response.rows[0]]
-                data_description = f"Returned data description:\nOnly one row: {data_types}\n"
+                data_description = f"Returned data description:\nOnly one row with datatype: {data_types}\n"
             else:
                 data_description = "No data returned\n"
             content = (
