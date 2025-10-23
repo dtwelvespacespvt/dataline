@@ -381,7 +381,7 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                 )
             elif len(response.rows) == 1:
                 data_types = [type(cell).__name__ for cell in response.rows[0]]
-                data_description = f"Returned data description:\nOnly one row datatype: {data_types}\n"
+                data_description = f"Returned data description:\nOnly one row with datatype: {data_types}\n"
             else:
                 data_description = "No data returned\n"
             content = (
