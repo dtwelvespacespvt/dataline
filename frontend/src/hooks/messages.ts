@@ -107,17 +107,19 @@ export function useSendMessageStreaming({
       );
     },
     onError: (error) => {
-      if (isAxiosError(error) && error.response?.status === 406) {
-        enqueueSnackbar({
-          variant: "error",
-          message: error.response.data.message,
-          persist: true,
-        });
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        const body = typeof error.response?.data === 'string'
+          ? error.response.data
+          : JSON.stringify(error.response?.data);
+        const msg =
+          status
+            ? `Request failed (${status}) ${error.code ?? ''} ${error.message} | ${body?.slice(0, 300)}`
+            : `Network/timeout ${error.code ?? ''} ${error.message}`;
+
+        enqueueSnackbar({ variant: "error", message: msg || "Error querying assistant", persist: status === 500 || status === 504 });
       } else {
-        enqueueSnackbar({
-          variant: "error",
-          message: "Error querying assistant",
-        });
+        enqueueSnackbar({ variant: "error", message: (error as any)?.message ?? "Error querying assistant" });
       }
     },
     onSettled,
@@ -164,17 +166,19 @@ export function useSendMessage() {
       );
     },
     onError: (error) => {
-      if (isAxiosError(error) && error.response?.status === 406) {
-        enqueueSnackbar({
-          variant: "error",
-          message: error.response.data.message,
-          persist: true,
-        });
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        const body = typeof error.response?.data === 'string'
+          ? error.response.data
+          : JSON.stringify(error.response?.data);
+        const msg =
+          status
+            ? `Request failed (${status}) ${error.code ?? ''} ${error.message} | ${body?.slice(0, 300)}`
+            : `Network/timeout ${error.code ?? ''} ${error.message}`;
+
+        enqueueSnackbar({ variant: "error", message: msg || "Error querying assistant", persist: status === 500 || status === 504 });
       } else {
-        enqueueSnackbar({
-          variant: "error",
-          message: "Error querying assistant",
-        });
+        enqueueSnackbar({ variant: "error", message: (error as any)?.message ?? "Error querying assistant" });
       }
     },
   });
