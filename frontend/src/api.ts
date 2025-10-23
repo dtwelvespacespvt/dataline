@@ -284,8 +284,8 @@ const query = async (
   return (
     await backendApi<QueryOut>({
       url: `/conversation/${conversationId}/query`,
-      params: { query, execute },
-      data: { message_options },
+      params: {execute },
+      data: { message_options, query },
       method: "POST",
     })
   ).data;
@@ -312,12 +312,12 @@ const streamingQuery = async ({
 
   const baseURL = apiURL.endsWith("/") ? apiURL : apiURL + "/";
 
-  const url = `${baseURL}conversation/${conversationId}/query?execute=${execute}&query=${encodeURIComponent(query)}`;
+  const url = `${baseURL}conversation/${conversationId}/query?execute=${execute}`;
 
   return fetchEventSource(url, {
     headers: headers,
     method: "POST",
-    body: JSON.stringify({ message_options }),
+    body: JSON.stringify({ message_options, query }),
     onmessage(ev) {
       onMessage(ev.event, ev.data);
     },
