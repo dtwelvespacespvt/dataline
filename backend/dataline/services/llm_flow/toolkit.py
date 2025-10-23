@@ -376,7 +376,7 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, StateUpdaterTool):
                 data_description = (
                     "Returned data description:\n"
                     f"Columns:{response.columns}\n"
-                    f"Data row datatype: {data_types}\n"
+                    f"Data row datatypes: {data_types}\n"
                     f"Data row count: {len(response.rows)}\n"
                 )
             elif len(response.rows) == 1:
