@@ -95,10 +95,10 @@ function getResultGroups(results: IResultType[]) {
   });
 
   // Sort each group
-  groups.forEach((group) => {
-    group.sort(sortGroup);
-  });
-  unlinkedGroup.sort(sortGroup);
+  // groups.forEach((group) => {
+  //   group.sort(sortGroup);
+  // });
+  // unlinkedGroup.sort(sortGroup);
   return { groups, unlinkedGroup };
 }
 
