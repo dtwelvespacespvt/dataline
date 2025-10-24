@@ -32,20 +32,20 @@ function hash(str: string): number {
   return Math.round(h % 10);
 }
 
-function sortGroup(a: IResultType, b: IResultType) {
-  if (a.type === "SELECTED_TABLES") return -1;
-  if (b.type === "SELECTED_TABLES") return 1;
+// function sortGroup(a: IResultType, b: IResultType) {
+//   if (a.type === "SELECTED_TABLES") return -1;
+//   if (b.type === "SELECTED_TABLES") return 1;
   
-  if (a.type === "SQL_QUERY_STRING_RESULT") return -1;
-  if (b.type === "SQL_QUERY_STRING_RESULT") return 1;
+//   if (a.type === "SQL_QUERY_STRING_RESULT") return -1;
+//   if (b.type === "SQL_QUERY_STRING_RESULT") return 1;
 
-  if (a.type === "CHART_GENERATION_RESULT") return -1;
-  if (b.type === "CHART_GENERATION_RESULT") return 1;
+//   if (a.type === "CHART_GENERATION_RESULT") return -1;
+//   if (b.type === "CHART_GENERATION_RESULT") return 1;
 
-  if (a.type === "SQL_QUERY_RUN_RESULT") return -1;
-  if (b.type === "SQL_QUERY_RUN_RESULT") return 1;
-  return 0;
-}
+//   if (a.type === "SQL_QUERY_RUN_RESULT") return -1;
+//   if (b.type === "SQL_QUERY_RUN_RESULT") return 1;
+//   return 0;
+// }
 
 function getResultGroups(results: IResultType[]) {
   // Group and then sort results every time they change
