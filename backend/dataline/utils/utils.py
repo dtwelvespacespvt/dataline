@@ -56,20 +56,55 @@ def stream_event_str(event: str, data: str) -> str:
 
 
 async def generate_with_errors(generator: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
-    last_ping_time = asyncio.get_event_loop().time()
+    loop = asyncio.get_event_loop()
+    last_ping_time = loop.time()
+
+    gen_task = None
+    timer_task = None
+
     try:
-        async for chunk in generator:
-            current_time = asyncio.get_event_loop().time()
-            if current_time - last_ping_time >= 5:
+        gen_task = asyncio.create_task(anext(generator))
+
+        while True:
+            time_since_last_ping = loop.time() - last_ping_time
+            time_to_next_ping = 5.0 - time_since_last_ping
+
+            timer_task = asyncio.create_task(asyncio.sleep(max(0, time_to_next_ping)))
+
+            done, pending = await asyncio.wait(
+                {gen_task, timer_task},
+                return_when=asyncio.FIRST_COMPLETED
+            )
+
+            if timer_task in done:
                 yield stream_event_str(
                     QueryStreamingEventType.HEARTBEAT.value,
                     QueryStreamingEventType.HEARTBEAT.value
                 )
-                last_ping_time = current_time
-            yield chunk
+                last_ping_time = loop.time()
+
+            if gen_task in done:
+                timer_task.cancel()
+
+                try:
+                    chunk = gen_task.result()
+                    yield chunk
+                    gen_task = asyncio.create_task(anext(generator))
+                except StopAsyncIteration:
+                    break
+
     except UserFacingError as e:
         logger.exception("Error in conversation query generator")
         yield stream_event_str(QueryStreamingEventType.ERROR.value, str(e))
+    except Exception as e:
+        logger.exception(f"Unexpected error in generator wrapper: {e}")
+        yield stream_event_str(QueryStreamingEventType.ERROR.value, f"An unexpected error occurred: {e}")
+
+    finally:
+        if gen_task and not gen_task.done():
+            gen_task.cancel()
+        if timer_task and not timer_task.done():
+            timer_task.cancel()
 
 
 def forward_connection_errors(error: Exception) -> None:

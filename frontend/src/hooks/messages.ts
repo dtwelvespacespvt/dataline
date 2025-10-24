@@ -50,6 +50,7 @@ export function useSendMessageStreaming({
 
   return useMutation({
     retry: false,
+    networkMode: 'always',
     mutationFn: async ({
       message,
       conversationId,
@@ -132,6 +133,7 @@ export function useSendMessage() {
 
   return useMutation({
     retry: false,
+    networkMode: 'always',
     mutationFn: async ({
       message,
       conversationId,
@@ -197,6 +199,7 @@ export function useRunSql(
   options: UseMutationOptions<IResult> = {}
 ) {
   return useMutation({
+    networkMode: 'always',
     mutationFn: async () =>
       (await api.runSQL(conversationId, sql.replace(/\s+/g, " "), resultId))
         .data,
@@ -226,6 +229,7 @@ export function useRunSqlInConversation(
 ) {
   const { conversationId } = useParams({ from: "/_app/chat/$conversationId" });
   return useMutation({
+    networkMode: 'always',
     mutationFn: async () =>
       (await api.runSQL(conversationId, sql.replace(/\s+/g, " "), resultId))
         .data,
@@ -254,6 +258,7 @@ export function useUpdateSqlQuery(
   >
 ) {
   return useMutation({
+    networkMode: 'always',
     mutationFn: async ({
       sqlStringResultId,
       code,
@@ -296,6 +301,7 @@ export function useRefreshChartData(
   >
 ) {
   return useMutation({
+    networkMode: 'always',
     mutationFn: async ({ chartResultId }: { chartResultId: string }) =>
       await api.refreshChart(chartResultId),
     onError() {
@@ -313,6 +319,7 @@ export function useRefreshChartData(
 
 export function useExportData() {
   return useMutation({
+    networkMode: 'always',
     mutationFn: async (linkedId: string) => api.getExportDataUrl(linkedId),
     onSuccess(exportUrl) {
       // Create a hidden anchor element
