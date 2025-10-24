@@ -114,12 +114,14 @@ export const Message = ({
     >
       <div className="text-base md:max-w-2xl lg:max-w-2xl xl:max-w-2xl py-4 md:py-6 lg:px-0 m-auto">
         <div className="px-3 md:px-1 w-full flex flex-col gap-2 md:gap-6 scrollbar-hide">
-          <div className="px-2 md:px-0 flex justify-center gap-2 sm:gap-4 md:gap-6">
+          {/** RESULTS: QUERY, DATA, PLOTS */}
+          <div className="px-2 md:px-0 flex gap-2 sm:gap-4 md:gap-6">
             <div className="flex flex-col shrink-0">
               <MessageIcon message={message} />
             </div>
-            {message.message.content && (
-              <div className="flex flex-grow">
+            <div className="flex flex-col gap-2 md:gap-6 min-w-0 flex-1">
+              <MessageResultRenderer initialResults={message.results || []} messageId={message.message.id || ""} messageOptions={messageOptions} />
+              {message.message.content && (
                 <div className="min-h-[20px] flex whitespace-pre-wrap break-words">
                   <div className="markdown prose w-full break-words dark:prose-invert dark">
                     <div className="flex gap-2">
@@ -132,11 +134,9 @@ export const Message = ({
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-          {/** RESULTS: QUERY, DATA, PLOTS */}
-          <MessageResultRenderer initialResults={message.results || []} messageId={message.message.id || ""} messageOptions={messageOptions} />
           <div className="flex flex-col justify-end items-end">
             {message.message.role === "ai" ? (
               <div className="flex flex-row">

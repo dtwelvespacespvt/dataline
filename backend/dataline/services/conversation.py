@@ -192,6 +192,7 @@ class ConversationService:
         query: str,
         secure_data: bool = True,
         debug: bool = False,
+        background_tasks = None,
     ) -> AsyncGenerator[str, None]:
 
         # Get conversation, connection, user settings
@@ -317,6 +318,8 @@ class ConversationService:
                 message=MessageOut.model_validate(stored_ai_message), results=serialized_results
             ),
         )
+
+        background_tasks.add_task(self.save_memory, session, cleaned_query, stored_ai_message.content, results, conversation_id, connection.id)
 
         await self.save_memory(session, cleaned_query, stored_ai_message.content, results, conversation_id, connection.id)
 

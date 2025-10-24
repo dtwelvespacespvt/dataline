@@ -8,6 +8,7 @@ from langchain_core.tracers.langchain import LangChainTracer
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolExecutor
 from langsmith import Client
+from IPython.display import Image, display
 
 from dataline.config import config as dataline_config
 from dataline.models.llm_flow.schema import QueryOptions, ResultType
@@ -69,7 +70,7 @@ class QueryGraphService:
 
         graph = self.build_graph()
         app = graph.compile()
-
+        image_bytes = app.get_graph().draw_mermaid_png(output_file_path="hello.png")
         if not options.secure_data:
             self.db._sample_rows_in_table_info = 3
 
